@@ -9,7 +9,20 @@ Follow this guide to:
 ## Pre-requisites
 
 First download the Arm GNU toolchain `arm-none-eabi` 14.2.Rel1 from [here](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads).
-Make sure to make it available on your path `PATH` and then check GCC version is reported correctly:
+Make sure to make it available on your path `PATH`.
+For example, on macOS with the default installation path:
+
+```shell
+export PATH=$PATH:/Applications/ArmGNUToolchain/14.3.rel1/arm-none-eabi/bin
+```
+
+To make it permanent (for Zsh users):
+
+```shell
+echo 'export PATH=$PATH:/Applications/ArmGNUToolchain/14.3.rel1/arm-none-eabi/bin' >> ~/.zshrc
+```
+
+Then check GCC version is reported correctly:
 
 ```shell
 $ arm-none-eabi-gcc --version

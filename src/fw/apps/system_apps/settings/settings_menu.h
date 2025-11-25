@@ -23,7 +23,6 @@
 
 #include <stdint.h>
 
-
 typedef enum {
   SettingsMenuItemBluetooth = 0,
   SettingsMenuItemNotifications,
@@ -40,6 +39,7 @@ typedef enum {
 #if PBL_COLOR
   SettingsMenuItemThemes,
 #endif
+  SettingsMenuItemMusic,
   SettingsMenuItemActivity,
   SettingsMenuItemSystem,
   SettingsMenuItem_Count,
