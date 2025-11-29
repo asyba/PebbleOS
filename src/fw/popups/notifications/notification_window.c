@@ -309,6 +309,14 @@ static void prv_peek_anim_stopped(Animation *animation, bool finished, void *con
   data->first_notif_loaded = true;
   peek_layer_destroy(data->peek_layer);
   data->peek_layer = NULL;
+  
+  // If in Popout mode and DND is active, close the window after peek
+  if (do_not_disturb_is_active() && 
+      alerts_preferences_dnd_get_show_notifications() == DndNotificationModePopout) {
+    prv_pop_notification_window(data);
+    return;
+  }
+  
   TimelineItem *item = prv_get_current_notification(data);
   layer_set_hidden((Layer *)&data->action_button_layer,
                    !prv_should_provide_action_menu_for_item(data, item));
@@ -371,15 +379,36 @@ static void prv_play_peek_layer(void *context) {
                                                                 data);
 }
 
+static void prv_set_peek_counter_text(PeekLayer *peek_layer) {
+  int count = notifications_presented_list_count();
+  char counter_text[40];
+  if (count == 1) {
+    snprintf(counter_text, sizeof(counter_text), "1 New Notification");
+  } else {
+    snprintf(counter_text, sizeof(counter_text), "%d New Notifications", count);
+  }
+  peek_layer_set_title(peek_layer, counter_text);
+}
+
 static void prv_show_peek_for_notification(NotificationWindowData *data, Uuid *id,
                                            bool is_first_notification) {
   // reload everything, doesn't matter since it will be covered by the peek layer
   notification_window_focus_notification(id, false);
 
-  // if the peek animation is already in progress, we've done all we need
+  // if the peek animation is already in progress, update the counter
   // data->peek_layer is only ever not null between the start and end of the peek
   // animation; it's cleaned up by prv_peek_anim_stopped, and initialized here
   if (data->peek_layer) {
+    // In Popout mode, update the notification counter
+    if (do_not_disturb_is_active() && 
+        alerts_preferences_dnd_get_show_notifications() == DndNotificationModePopout) {
+      prv_set_peek_counter_text(data->peek_layer);
+      
+      // Extend timer to give user time to see the updated count
+      const uint16_t EXTENDED_TIME_MS = 400;
+      data->peek_layer_timer = evented_timer_register_or_reschedule(
+          data->peek_layer_timer, EXTENDED_TIME_MS, prv_hide_peek_layer, data);
+    }
     return;
   }
   // get root layer of window and make the peek layer the full size
@@ -405,8 +434,18 @@ static void prv_show_peek_for_notification(NotificationWindowData *data, Uuid *i
   TimelineResourceId timeline_res_id;
   const TimelineResourceId fallback_icon_id = notification_layout_get_fallback_icon_id(
       item->header.type);
-  timeline_res_id = attribute_get_uint32(&item->attr_list, AttributeIdIconTiny,
-                                         fallback_icon_id);
+  
+  // In Popout mode with multiple notifications, use generic icon
+  const bool use_generic_icon = (do_not_disturb_is_active() && 
+      alerts_preferences_dnd_get_show_notifications() == DndNotificationModePopout &&
+      notifications_presented_list_count() > 1);
+  
+  if (use_generic_icon) {
+    timeline_res_id = fallback_icon_id;  // Use generic notification icon
+  } else {
+    timeline_res_id = attribute_get_uint32(&item->attr_list, AttributeIdIconTiny,
+                                           fallback_icon_id);
+  }
 
   data->peek_icon_info = (TimelineResourceInfo) {
     .res_id = timeline_res_id,
@@ -419,7 +458,16 @@ static void prv_show_peek_for_notification(NotificationWindowData *data, Uuid *i
 #else
   peek_layer_set_icon(data->peek_layer, &data->peek_icon_info);
 #endif
-  peek_layer_set_background_color(data->peek_layer, colors->bg_color);
+  
+  // Use neutral background color for multiple notifications in Popout mode
+  GColor bg_color = use_generic_icon ? GColorLightGray : colors->bg_color;
+  peek_layer_set_background_color(data->peek_layer, bg_color);
+  
+  // In Popout mode, show notification counter instead of specific notification details
+  if (do_not_disturb_is_active() && 
+      alerts_preferences_dnd_get_show_notifications() == DndNotificationModePopout) {
+    prv_set_peek_counter_text(data->peek_layer);
+  }
 
   // This is so that only the banner of the swap_layer is sticking out from the bottom
   GRect swap_frame = ((Layer *)&data->swap_layer)->frame;
@@ -1340,9 +1388,44 @@ static void prv_handle_notification_added_common(Uuid *id, NotificationType type
     return;
   }
 
-  if (do_not_disturb_is_active() && !alerts_preferences_dnd_get_show_notifications()) {
-    alerts_incoming_alert_analytics();
-    return;
+  if (do_not_disturb_is_active()) {
+    DndNotificationMode mode = alerts_preferences_dnd_get_show_notifications();
+    
+    if (mode == DndNotificationModeHide) {
+      // Hide mode: don't show anything
+      alerts_incoming_alert_analytics();
+      return;
+    } else if (mode == DndNotificationModePopout) {
+      // Popout mode: show only peek animation, then auto-close
+      NotificationWindowData *data = &s_notification_window_data;
+      
+      // Initialize window if needed
+      prv_init_notification_window(true /*is_modal*/);
+      
+      if (data->is_modal) {
+        WindowStack *window_stack = modal_manager_get_window_stack(NOTIFICATION_PRIORITY);
+        bool is_new = !window_stack_contains_window(window_stack, &data->window);
+        
+        // Add notification to the list so it appears in history
+        prv_notification_window_add_notification(id, type);
+        
+        if (is_new) {
+          data->first_notif_loaded = false;
+          // Show the peek animation
+          prv_show_peek_for_notification(data, id, true /* is_first_notification */);
+          // Push the window so the peek layer can be displayed
+          modal_window_push(&data->window, NOTIFICATION_PRIORITY, true /* animated */);
+          // The window will auto-close after the peek animation completes
+        }
+      }
+      
+      // Record analytics
+      alerts_incoming_alert_analytics();
+      
+      // Don't vibrate or enable backlight in Popout mode
+      return;
+    }
+    // If mode == DndNotificationModeShow, continue with normal flow below
   }
 
   NotificationWindowData *data = &s_notification_window_data;

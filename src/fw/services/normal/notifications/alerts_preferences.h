@@ -34,15 +34,21 @@ typedef enum MuteBitfield {
   MuteBitfield_Weekends = 0b01000001,
 } MuteBitfield;
 
+typedef enum {
+  DndNotificationModeHide = 0,
+  DndNotificationModeShow = 1,
+  DndNotificationModePopout = 2,
+} DndNotificationMode;
+
 //! @return The alert mask to use when DND is active
 AlertMask alerts_preferences_dnd_get_mask(void);
 
-//! Set whether notifications should be shown when DND is active
-//! @param enable True to show notifications (default), false to hide them
-void alerts_preferences_dnd_set_show_notifications(bool enable);
+//! Set the notification display mode when DND is active
+//! @param mode The display mode (Hide, Show, or Popout)
+void alerts_preferences_dnd_set_show_notifications(DndNotificationMode mode);
 
-//! @return True if notifications should be shown when DND is active
-bool alerts_preferences_dnd_get_show_notifications(void);
+//! @return The notification display mode when DND is active
+DndNotificationMode alerts_preferences_dnd_get_show_notifications(void);
 
 //! @return True if DND is manually enabled
 bool alerts_preferences_dnd_is_manually_enabled(void);

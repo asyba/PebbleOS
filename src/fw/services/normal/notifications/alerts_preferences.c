@@ -45,7 +45,7 @@ static AlertMask s_mask = AlertMaskAllOn;
 static AlertMask s_dnd_interruptions_mask = AlertMaskAllOff;
 
 #define PREF_KEY_DND_SHOW_NOTIFICATIONS "dndShowNotifications"
-static bool s_dnd_show_notifications = true;
+static DndNotificationMode s_dnd_show_notifications = DndNotificationModeShow;
 
 #define PREF_KEY_VIBE "vibe"
 static bool s_vibe_on_notification = true;
@@ -431,12 +431,12 @@ AlertMask alerts_preferences_dnd_get_mask(void) {
   return s_dnd_interruptions_mask;
 }
 
-void alerts_preferences_dnd_set_show_notifications(bool enable) {
-  s_dnd_show_notifications = enable;
+void alerts_preferences_dnd_set_show_notifications(DndNotificationMode mode) {
+  s_dnd_show_notifications = mode;
   SET_PREF(PREF_KEY_DND_SHOW_NOTIFICATIONS, s_dnd_show_notifications);
 }
 
-bool alerts_preferences_dnd_get_show_notifications(void) {
+DndNotificationMode alerts_preferences_dnd_get_show_notifications(void) {
   return s_dnd_show_notifications;
 }
 

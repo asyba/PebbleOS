@@ -77,14 +77,49 @@ static AlertMask prv_cycle_dnd_mask(void) {
   return mask;
 }
 
-static const char *prv_get_dnd_mask_subtitle(void *i18n_key) {
+static void prv_cycle_notification_mode(void) {
+  DndNotificationMode current = alerts_preferences_dnd_get_show_notifications();
+  DndNotificationMode next;
+
+  switch (current) {
+    case DndNotificationModeShow:
+      next = DndNotificationModePopout;
+      break;
+    case DndNotificationModePopout:
+      next = DndNotificationModeHide;
+      break;
+    case DndNotificationModeHide:
+    default:
+      next = DndNotificationModeShow;
+      break;
+  }
+
+  alerts_preferences_dnd_set_show_notifications(next);
+}
+
+static const char *prv_get_notification_mode_subtitle(void *data) {
+  DndNotificationMode mode = alerts_preferences_dnd_get_show_notifications();
+
+  switch (mode) {
+    case DndNotificationModeShow:
+      return i18n_get("Show", data);
+    case DndNotificationModeHide:
+      return i18n_get("Hide", data);
+    case DndNotificationModePopout:
+      return i18n_get("Popout", data);
+    default:
+      return i18n_get("Show", data);
+  }
+}
+
+static const char *prv_get_dnd_mask_subtitle(void *data) {
   const char *title = NULL;
   switch (alerts_get_dnd_mask()) {
     case AlertMaskAllOff:
-      title = i18n_get("Quiet All Notifications", i18n_key);
+      title = i18n_get("Quiet All Notifications", data);
       break;
     case AlertMaskPhoneCalls:
-      title = i18n_get("Allow Phone Calls", i18n_key);
+      title = i18n_get("Allow Phone Calls", data);
       break;
     default:
       title = "???";
@@ -277,8 +312,7 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       break;
     case QuietTimeItemNotifications:
       title = i18n_get("Notifications", data);
-      strncpy(subtitle, alerts_preferences_dnd_get_show_notifications() ?
-                  i18n_get("Show", data) : i18n_get("Hide", data), buffer_length);
+      strncpy(subtitle, prv_get_notification_mode_subtitle(data), buffer_length);
       break;
     default:
         WTF;
@@ -307,7 +341,7 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       prv_cycle_dnd_mask();
       break;
     case QuietTimeItemNotifications:
-      alerts_preferences_dnd_set_show_notifications(!alerts_preferences_dnd_get_show_notifications());
+      prv_cycle_notification_mode();
       break;
     default:
         WTF;
