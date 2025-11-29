@@ -54,6 +54,7 @@ enum QuietTimeItem {
   QuietTimeItemWeekdayScheduled,
   QuietTimeItemWeekendScheduled,
   QuietTimeItemInterruptions,
+  QuietTimeItemNotifications,
   QuietTimeItem_Count,
 };
 
@@ -274,6 +275,11 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       title = i18n_get("Interruptions", data);
       strncpy(subtitle, prv_get_dnd_mask_subtitle(data), buffer_length);
       break;
+    case QuietTimeItemNotifications:
+      title = i18n_get("Notifications", data);
+      strncpy(subtitle, alerts_preferences_dnd_get_show_notifications() ?
+                  i18n_get("Show", data) : i18n_get("Hide", data), buffer_length);
+      break;
     default:
         WTF;
   }
@@ -299,6 +305,9 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       break;
     case QuietTimeItemInterruptions:
       prv_cycle_dnd_mask();
+      break;
+    case QuietTimeItemNotifications:
+      alerts_preferences_dnd_set_show_notifications(!alerts_preferences_dnd_get_show_notifications());
       break;
     default:
         WTF;

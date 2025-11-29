@@ -18,6 +18,8 @@
 
 #include <stdbool.h>
 
+#include "alerts_private.h"
+
 typedef enum FirstUseSource {
   FirstUseSourceManualDNDActionMenu = 0,
   FirstUseSourceManualDNDSettingsMenu,
@@ -31,6 +33,19 @@ typedef enum MuteBitfield {
   MuteBitfield_Weekdays = 0b00111110,
   MuteBitfield_Weekends = 0b01000001,
 } MuteBitfield;
+
+//! @return The alert mask to use when DND is active
+AlertMask alerts_preferences_dnd_get_mask(void);
+
+//! Set whether notifications should be shown when DND is active
+//! @param enable True to show notifications (default), false to hide them
+void alerts_preferences_dnd_set_show_notifications(bool enable);
+
+//! @return True if notifications should be shown when DND is active
+bool alerts_preferences_dnd_get_show_notifications(void);
+
+//! @return True if DND is manually enabled
+bool alerts_preferences_dnd_is_manually_enabled(void);
 
 //! Checks whether a given "first use" dialog has been shown and sets it as complete
 //! @param source The "first use" bit to check
