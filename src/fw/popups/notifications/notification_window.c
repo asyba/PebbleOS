@@ -35,10 +35,13 @@
 #include "kernel/pbl_malloc.h"
 #include "kernel/ui/modals/modal_manager.h"
 #include "os/mutex.h"
+#include "popups/timeline/peek.h"
 #include "process_state/app_state/app_state.h"
 #include "resource/resource_ids.auto.h"
+#include "resource/timeline_resource_ids.auto.h"
 #include "services/common/analytics/analytics.h"
 #include "services/common/bluetooth/bluetooth_persistent_storage.h"
+#include "services/common/clock.h"
 #include "services/common/comm_session/session.h"
 #include "services/common/evented_timer.h"
 #include "services/common/i18n/i18n.h"
@@ -57,6 +60,7 @@
 #include "services/normal/notifications/notification_types.h"
 #include "services/normal/notifications/notifications.h"
 #include "services/normal/timeline/attribute.h"
+#include "services/normal/timeline/item.h"
 #include "services/normal/timeline/notification_layout.h"
 #include "services/normal/timeline/swap_layer.h"
 #include "services/normal/timeline/timeline.h"
@@ -1383,6 +1387,64 @@ static void prv_handle_notification_acted_upon(Uuid *id) {
   }
 }
 
+static void prv_hide_timeline_peek(void *data) {
+  // Hide the peek
+  timeline_peek_set_item(NULL, false, 0, false, true);
+  
+  // Clear the presented list so we don't accumulate notifications indefinitely
+  notifications_presented_list_deinit(NULL, NULL);
+  notifications_presented_list_init();
+}
+
+static void prv_show_timeline_peek_for_notification(NotificationWindowData *data, Uuid *id) {
+  TimelineItem storage_item;
+  if (!notification_storage_get(id, &storage_item)) {
+    return;
+  }
+
+  // Copy the item so we can modify it safely
+  TimelineItem *item = timeline_item_copy(&storage_item);
+  // Free the storage buffer immediately as we have a copy
+  timeline_item_free_allocated_buffer(&storage_item);
+
+  if (!item) {
+    return;
+  }
+
+  int count = notifications_presented_list_count();
+  
+  // Create a new attribute list with only the attributes we want
+  // Destroy the old list and create a fresh one
+  attribute_list_destroy_list(&item->attr_list);
+
+  // Set generic icon
+  attribute_list_add_uint32(&item->attr_list, AttributeIdIconTiny, TIMELINE_RESOURCE_NOTIFICATION_GENERIC);
+  
+  // Set generic neutral background color (gray)
+  attribute_list_add_uint8(&item->attr_list, AttributeIdBgColor, GColorDarkGrayARGB8);
+  
+  // Set generic title
+  char counter_text[40];
+  if (count == 1) {
+    snprintf(counter_text, sizeof(counter_text), "1 New Notification");
+  } else {
+    snprintf(counter_text, sizeof(counter_text), "%d New Notifications", count);
+  }
+  attribute_list_add_cstring(&item->attr_list, AttributeIdTitle, counter_text);
+
+  // Show the peek
+  // num_concurrent is count - 1 (0 based)
+  unsigned int num_concurrent = (count > 0) ? count - 1 : 0;
+  timeline_peek_set_item(item, true /* started */, num_concurrent, false /* first */, true /* animated */);
+
+  timeline_item_destroy(item);
+
+  // Schedule hide after 3 seconds
+  const uint32_t PEEK_DURATION_MS = 3000;
+  data->peek_layer_timer = evented_timer_register_or_reschedule(
+      data->peek_layer_timer, PEEK_DURATION_MS, prv_hide_timeline_peek, data);
+}
+
 static void prv_handle_notification_added_common(Uuid *id, NotificationType type) {
   if (!alerts_should_notify_for_type(prv_alert_type_for_notification_type(type))) {
     return;
@@ -1396,32 +1458,18 @@ static void prv_handle_notification_added_common(Uuid *id, NotificationType type
       alerts_incoming_alert_analytics();
       return;
     } else if (mode == DndNotificationModePopout) {
-      // Popout mode: show only peek animation, then auto-close
+      // Popout mode: show timeline peek (small bottom bar)
       NotificationWindowData *data = &s_notification_window_data;
-      
-      // Initialize window if needed
-      prv_init_notification_window(true /*is_modal*/);
-      
-      if (data->is_modal) {
-        WindowStack *window_stack = modal_manager_get_window_stack(NOTIFICATION_PRIORITY);
-        bool is_new = !window_stack_contains_window(window_stack, &data->window);
-        
-        // Add notification to the list so it appears in history
-        prv_notification_window_add_notification(id, type);
-        
-        if (is_new) {
-          data->first_notif_loaded = false;
-          // Show the peek animation
-          prv_show_peek_for_notification(data, id, true /* is_first_notification */);
-          // Push the window so the peek layer can be displayed
-          modal_window_push(&data->window, NOTIFICATION_PRIORITY, true /* animated */);
-          // The window will auto-close after the peek animation completes
-        }
-      }
+
+      // Add notification to the list so it appears in history
+      prv_notification_window_add_notification(id, type);
+
+      // Show the timeline peek
+      prv_show_timeline_peek_for_notification(data, id);
       
       // Record analytics
       alerts_incoming_alert_analytics();
-      
+
       // Don't vibrate or enable backlight in Popout mode
       return;
     }
