@@ -1,18 +1,5 @@
-/*
- * Copyright 2025 Core Devices LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2025 Core Devices LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -32,11 +19,7 @@ extern QSPIPort * const QSPI;
 extern QSPIFlash * const QSPI_FLASH;
 extern I2CBus *const I2C1_BUS;
 extern I2CBus *const I2C2_BUS;
-#ifdef IMU_USE_LIS2DW12
 extern I2CSlavePort *const I2C_LSM2DW12;
-#else
-extern I2CSlavePort * const I2C_LSM6D;
-#endif
 extern I2CSlavePort * const I2C_MMC5603NJ;
 extern I2CSlavePort * const I2C_NPM1300;
 extern I2CSlavePort *const I2C_AW86225;
@@ -44,9 +27,6 @@ extern I2CSlavePort *const I2C_W1160;
 extern I2CSlavePort *const I2C_AW2016;
 extern const Npm1300Config NPM1300_CONFIG;
 extern const BoardConfigActuator BOARD_CONFIG_VIBE;
-#if !BOARD_OBELIX_DVT && !BOARD_OBELIX_PVT && !BOARD_OBELIX_BB2
-extern const LedControllerPwm LED_CONTROLLER_PWM;
-#endif
 extern PwmConfig *const PWM1_CH1;
 extern DisplayJDIDevice *const DISPLAY;
 extern const BoardConfigPower BOARD_CONFIG_POWER;
@@ -71,8 +51,8 @@ static const BoardConfigAccel BOARD_CONFIG_ACCEL = {
     .axes_inverts[AXIS_Y] = true,
     .axes_inverts[AXIS_Z] = false,
 #else
-    .axes_offsets[AXIS_X] = 0,
-    .axes_offsets[AXIS_Y] = 1,
+    .axes_offsets[AXIS_X] = 1,
+    .axes_offsets[AXIS_Y] = 0,
     .axes_offsets[AXIS_Z] = 2,
     .axes_inverts[AXIS_X] = false,
     .axes_inverts[AXIS_Y] = true,
@@ -92,6 +72,7 @@ static const BoardConfigAccel BOARD_CONFIG_ACCEL = {
     .tap_shock = 0x03U,
     .tap_quiet = 0x02U,
     .tap_dur = 0x08U,
+    .default_motion_sensitivity = 70U, // Medium-High
   },
   .accel_int_gpios = {
     [0] = { .gpio = hwp_gpio1, .gpio_pin = 38 },

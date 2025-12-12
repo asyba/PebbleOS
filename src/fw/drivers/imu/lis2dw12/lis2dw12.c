@@ -1,18 +1,5 @@
-/*
- * Copyright 2025 Core Devices LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2025 Core Devices LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "board/board.h"
 #include "drivers/accel.h"
@@ -213,7 +200,7 @@ static void prv_lis2dw12_read_samples(void) {
     // Reset FIFO on communication error
     lis2dw12_fifo_mode_set(&lis2dw12_ctx, LIS2DW12_BYPASS_MODE);
     if (s_fifo_in_use) {
-      lis2dw12_fifo_mode_set(&lis2dw12_ctx, LIS2DW12_STREAM_MODE);
+      lis2dw12_fifo_mode_set(&lis2dw12_ctx, LIS2DW12_BYPASS_TO_STREAM_MODE);
     }
     return;
   }
@@ -227,7 +214,7 @@ static void prv_lis2dw12_read_samples(void) {
     // Reset FIFO on communication error
     lis2dw12_fifo_mode_set(&lis2dw12_ctx, LIS2DW12_BYPASS_MODE);
     if (s_fifo_in_use) {
-      lis2dw12_fifo_mode_set(&lis2dw12_ctx, LIS2DW12_STREAM_MODE);
+      lis2dw12_fifo_mode_set(&lis2dw12_ctx, LIS2DW12_BYPASS_TO_STREAM_MODE);
     }
     return;
   }
@@ -325,7 +312,7 @@ static void prv_lis2dw12_process_interrupts(void) {
       if (reduced_watermark == 0) reduced_watermark = 1;
       
       lis2dw12_fifo_watermark_set(&lis2dw12_ctx, reduced_watermark);
-      lis2dw12_fifo_mode_set(&lis2dw12_ctx, LIS2DW12_STREAM_MODE);
+      lis2dw12_fifo_mode_set(&lis2dw12_ctx, LIS2DW12_BYPASS_TO_STREAM_MODE);
 
       PBL_LOG(LOG_LEVEL_INFO, "LIS2DW12: Reduced FIFO watermark from %u to %u to prevent future overflow",
               current_watermark, reduced_watermark);
@@ -376,36 +363,53 @@ static void prv_lis2dw12_process_interrupts(void) {
   }
 
   // Wake-up (any-motion) event -> treat as shake. Axis & direction derived from wake_up_src.
-  if (s_lis2dw12_state.shake_detection_enabled && all_sources.tap_src.tap_sign) {
+  if (s_lis2dw12_state.shake_detection_enabled && all_sources.wake_up_src.wu_ia) {
     s_wake_event_count++;
     s_last_wake_event_ms = now_ms;
-    lis2dw12_wake_up_src_t wake_src;
-    if (lis2dw12_read_reg(&lis2dw12_ctx, LIS2DW12_WAKE_UP_SRC, (uint8_t *)&wake_src, 1) == 0) {
-      IMUCoordinateAxis axis = AXIS_X;
-      int32_t direction = 1;  // LIS2DW12 does not give sign directly for wake-up; approximate via
-                              // sign of latest sample on axis
-      // Determine which axis triggered: order X,Y,Z
-      const AccelConfig *cfg = &BOARD_CONFIG_ACCEL.accel_config;
-      if (wake_src.x_wu) {
-        axis = AXIS_X;
-      } else if (wake_src.y_wu) {
-        axis = AXIS_Y;
-      } else if (wake_src.z_wu) {
-        axis = AXIS_Z;
-      }
-      // Read current sample to infer direction
-      int16_t accel_raw[3];
-      if (lis2dw12_acceleration_raw_get(&lis2dw12_ctx, accel_raw) == 0) {
-        int16_t val = accel_raw[cfg->axes_offsets[axis]];
-        bool invert = cfg->axes_inverts[axis];
-        direction = (val >= 0 ? 1 : -1) * (invert ? -1 : 1);
-        int16_t mg_x = prv_get_axis_projection_mg(X_AXIS, accel_raw);
-        int16_t mg_y = prv_get_axis_projection_mg(Y_AXIS, accel_raw);
-        int16_t mg_z = prv_get_axis_projection_mg(Z_AXIS, accel_raw);
-        prv_note_new_sample_mg(mg_x, mg_y, mg_z);
-      }
-      PBL_LOG(LOG_LEVEL_DEBUG, "LIS2DW12: Shake detected; axis=%d, direction=%lu", axis, direction);
-      accel_cb_shake_detected(axis, direction);
+    
+    // Use wake_up_src already read by all_sources_get - don't re-read the register
+    // as that can clear flags and cause race conditions with pulsed interrupts
+    IMUCoordinateAxis axis = AXIS_X;
+    int32_t direction = 1;
+    
+    // Determine which axis triggered from already-read wake_up_src
+    const AccelConfig *cfg = &BOARD_CONFIG_ACCEL.accel_config;
+    if (all_sources.wake_up_src.x_wu) {
+      axis = AXIS_X;
+    } else if (all_sources.wake_up_src.y_wu) {
+      axis = AXIS_Y;
+    } else if (all_sources.wake_up_src.z_wu) {
+      axis = AXIS_Z;
+    }
+    
+    // Use last known sample for direction instead of reading new data during interrupt
+    // Reading acceleration data here can interfere with FIFO operation
+    int16_t val = s_last_sample_mg[cfg->axes_offsets[axis]];
+    bool invert = cfg->axes_inverts[axis];
+    direction = (val >= 0 ? 1 : -1) * (invert ? -1 : 1);
+    
+    PBL_LOG(LOG_LEVEL_DEBUG, "LIS2DW12: Shake detected; axis=%d, direction=%lu", axis, direction);
+    accel_cb_shake_detected(axis, direction);
+
+    // The wake-up interrupt is latched - if the wake condition is still true (device still
+    // moving above threshold), the flag immediately re-latches after reading, keeping INT1
+    // asserted high and preventing new edge interrupts. To fix this, we temporarily disable
+    // wake-up interrupt routing, clear the sources, then re-enable. This forces a clean reset.
+    if (s_fifo_in_use) {
+      // Disable wake-up interrupt routing temporarily
+      lis2dw12_ctrl4_int1_pad_ctrl_t int1_routes;
+      lis2dw12_pin_int1_route_get(&lis2dw12_ctx, &int1_routes);
+      uint8_t saved_wu = int1_routes.int1_wu;
+      int1_routes.int1_wu = 0;
+      lis2dw12_pin_int1_route_set(&lis2dw12_ctx, &int1_routes);
+
+      // Clear interrupt sources while wake-up is disabled
+      lis2dw12_all_sources_t clear_sources;
+      lis2dw12_all_sources_get(&lis2dw12_ctx, &clear_sources);
+
+      // Re-enable wake-up interrupt routing
+      int1_routes.int1_wu = saved_wu;
+      lis2dw12_pin_int1_route_set(&lis2dw12_ctx, &int1_routes);
     }
   }
 }
@@ -448,9 +452,12 @@ static void prv_lis2dw12_configure_fifo(bool enable) {
     lis2dw12_fifo_mode_set(&lis2dw12_ctx, LIS2DW12_BYPASS_MODE);
     psleep(LIS2DW12_REG_OPS_WAIT_TIME_MS); // Allow time for FIFO to clear
 
-    // Put FIFO in stream mode so we keep collecting samples and get periodic watermark interrupts
-    if (lis2dw12_fifo_mode_set(&lis2dw12_ctx, LIS2DW12_STREAM_MODE)) {
-      PBL_LOG(LOG_LEVEL_ERROR, "LIS2DW12: Failed to enable FIFO stream mode");
+    // Put FIFO in bypass-to-stream mode instead of pure stream mode.
+    // Stream mode continuously fills the FIFO even during interrupt processing,
+    // which can cause overflow races and interfere with wake-up (shake) detection.
+    // Bypass-to-stream provides cleaner state transitions and prevents overflow loops.
+    if (lis2dw12_fifo_mode_set(&lis2dw12_ctx, LIS2DW12_BYPASS_TO_STREAM_MODE)) {
+      PBL_LOG(LOG_LEVEL_ERROR, "LIS2DW12: Failed to enable FIFO bypass-to-stream mode");
     }
   } else {
     if (s_fifo_in_use) {
@@ -578,7 +585,7 @@ static void prv_lis2dw12_configure_interrupts(void) {
     prv_lis2dw12_configure_fifo(true);
     int1_routes.int1_diff5 = 1;
     int1_routes.int1_fth = 1;
-    int1_routes.int1_drdy = 1;
+    int1_routes.int1_drdy = 0;
   } else {
     prv_lis2dw12_configure_fifo(false);
     int1_routes.int1_diff5 = 0;
@@ -594,6 +601,11 @@ static void prv_lis2dw12_configure_interrupts(void) {
     PBL_LOG(LOG_LEVEL_ERROR, "LIS2DW12: Failed to configure INT1 routes; re-enabling external interrupt");
     routing_configured = false;
   } else {
+    // Allow time for interrupt routing configuration to take effect.
+    // The LIS2DW12 needs a brief delay after CTRL4/CTRL7 register writes
+    // before the wake-up interrupt logic is fully operational.
+    psleep(LIS2DW12_REG_OPS_WAIT_TIME_MS);
+    
     // Clear any pending interrupt sources before enabling external interrupt
     lis2dw12_all_sources_t all_sources;
     if (lis2dw12_all_sources_get(&lis2dw12_ctx, &all_sources)) {

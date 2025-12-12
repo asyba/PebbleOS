@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include <stdio.h>
 
@@ -270,10 +257,23 @@ extern void vPortSuppressTicksAndSleep( TickType_t xExpectedIdleTime ) {
         counter_stop += 0x10000;
       }
       uint32_t counter_elapsed = counter_stop - counter_start;
-      uint32_t cycles_elapsed = (counter_elapsed * RTC_TICKS_HZ) / 9000;
 
-      s_analytics_device_sleep_cpu_cycles += cycles_elapsed;
-      s_analytics_app_sleep_cpu_cycles += cycles_elapsed;
+      // Calculate elapsed ticks and step FreeRTOS tick count
+      // Use calibrated RC10K frequency (measured against HXT48)
+      uint32_t rc10k_freq = lptim_systick_get_rc10k_freq();
+      uint32_t ticks_elapsed = (counter_elapsed * RTC_TICKS_HZ) / rc10k_freq;
+      if (ticks_elapsed > 0) {
+        // Cap to xExpectedIdleTime to avoid FreeRTOS assertion
+        if (ticks_elapsed > xExpectedIdleTime) {
+          ticks_elapsed = xExpectedIdleTime;
+        }
+        vTaskStepTick(ticks_elapsed);
+        // Clear pending LPTIM interrupt and set up next tick to avoid double-counting
+        lptim_systick_sync_after_wfi();
+      }
+
+      s_analytics_device_sleep_cpu_cycles += ticks_elapsed;
+      s_analytics_app_sleep_cpu_cycles += ticks_elapsed;
     } else {
       const RtcTicks stop_duration = MIN(xExpectedIdleTime - EARLY_WAKEUP_TICKS, MAX_STOP_TICKS);
 
@@ -284,14 +284,24 @@ extern void vPortSuppressTicksAndSleep( TickType_t xExpectedIdleTime ) {
 
       enter_stop_mode();
 
+      lptim_systick_tickless_exit();
+
       uint32_t ticks_elapsed = lptim_systick_get_elapsed_ticks();
+
+      // Cap ticks_elapsed to xExpectedIdleTime to avoid FreeRTOS assertion failure
+      // in vTaskStepTick() when we oversleep due to wake-up latency or RC oscillator drift
+      if (ticks_elapsed > xExpectedIdleTime) {
+        ticks_elapsed = xExpectedIdleTime;
+      }
 
       s_last_ticks_elapsed_in_stop = ticks_elapsed;
       vTaskStepTick(ticks_elapsed);
 
       // Update the task watchdog every time we come out of STOP mode (which is
       // at least once/second) since the timer peripheral will not have been
-      // incremented
+      // incremented. Set all watchdog bits first since the LPTIM ISR that would
+      // normally do this hasn't run yet (interrupts are still globally disabled).
+      task_watchdog_bit_set_all();
       task_watchdog_step_elapsed_time_ms((ticks_elapsed * 1000) / RTC_TICKS_HZ);
 
       s_analytics_device_stop_ticks += ticks_elapsed;

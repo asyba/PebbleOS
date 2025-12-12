@@ -1,18 +1,5 @@
-/*
- * Copyright 2025 Core Devices LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2025 Core Devices LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "applib/app.h"
 #include "applib/tick_timer_service.h"
@@ -153,13 +140,13 @@ static void s_main(void) {
   app_event_loop();
 }
 
-const PebbleProcessMd *mfg_speaker_app_get_info(void) {
+const PebbleProcessMd *mfg_speaker_asterix_app_get_info(void) {
   static const PebbleProcessMdSystem s_app_info = {
       .common.main_func = &s_main,
       // UUID: 27047635-68f1-4ece-9ca7-52dd8e22d1dd
       .common.uuid = {0x27, 0x04, 0x76, 0x35, 0x68, 0xf1, 0x4e, 0xce, 0x9c, 0xa7, 0x52, 0xdd, 0x8e,
                       0x22, 0xd1, 0xdd},
-      .name = "MfgSpeaker",
+      .name = "MfgSpeakerAsterix",
   };
   return (const PebbleProcessMd *)&s_app_info;
 }

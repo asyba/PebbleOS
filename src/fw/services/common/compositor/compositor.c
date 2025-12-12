@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "compositor.h"
 #include "compositor_dma.h"
@@ -319,13 +306,16 @@ T_STATIC void prv_handle_display_update_complete(void) {
     s_deferred_render.animation.pending = false;
     prv_animation_update(s_animation_state.animation, s_deferred_render.animation.progress);
   }
-  if (s_deferred_render.app.pending) {
-    s_deferred_render.app.pending = false;
-    compositor_app_render_ready();
-  }
+  // Process transition_start before app so that the compositor state is set to
+  // AppTransitionPending before compositor_app_render_ready() is called. Otherwise, the app
+  // framebuffer may be rendered directly to the display before the transition animation starts.
   if (s_deferred_render.transition_start.pending) {
     s_deferred_render.transition_start.pending = false;
     compositor_transition(s_deferred_render.transition_start.compositor_animation);
+  }
+  if (s_deferred_render.app.pending) {
+    s_deferred_render.app.pending = false;
+    compositor_app_render_ready();
   }
 }
 

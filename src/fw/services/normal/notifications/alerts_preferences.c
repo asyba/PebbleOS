@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "services/normal/notifications/alerts_preferences.h"
 #include "services/normal/notifications/alerts_preferences_private.h"
@@ -78,6 +65,9 @@ static uint32_t s_notif_window_timeout_ms = NOTIF_WINDOW_TIMEOUT_DEFAULT;
 
 #define PREF_KEY_NOTIF_DESIGN_STYLE "notifDesignStyle"
 static bool s_notification_alternative_design = false;  // true = alternative (black banner), false = standard (default)
+
+#define PREF_KEY_NOTIF_VIBE_DELAY "notifVibeDelay"
+static bool s_notification_vibe_delay = false;  // true = vibe at end of animation, false = vibe immediately (default)
 
 ///////////////////////////////////
 //! Legacy preference keys
@@ -293,6 +283,7 @@ void alerts_preferences_init(void) {
   RESTORE_PREF(PREF_KEY_FIRST_USE_COMPLETE, s_first_use_complete);
   RESTORE_PREF(PREF_KEY_NOTIF_WINDOW_TIMEOUT, s_notif_window_timeout_ms);
   RESTORE_PREF(PREF_KEY_NOTIF_DESIGN_STYLE, s_notification_alternative_design);
+  RESTORE_PREF(PREF_KEY_NOTIF_VIBE_DELAY, s_notification_vibe_delay);
 #undef RESTORE_PREF
 
   prv_migrate_legacy_dnd_schedule(&file);
@@ -356,6 +347,15 @@ bool alerts_preferences_get_notification_alternative_design(void) {
 void alerts_preferences_set_notification_alternative_design(bool alternative) {
   s_notification_alternative_design = alternative;
   SET_PREF(PREF_KEY_NOTIF_DESIGN_STYLE, s_notification_alternative_design);
+}
+
+bool alerts_preferences_get_notification_vibe_delay(void) {
+  return s_notification_vibe_delay;
+}
+
+void alerts_preferences_set_notification_vibe_delay(bool delay) {
+  s_notification_vibe_delay = delay;
+  SET_PREF(PREF_KEY_NOTIF_VIBE_DELAY, s_notification_vibe_delay);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

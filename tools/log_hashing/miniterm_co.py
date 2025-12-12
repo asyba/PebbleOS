@@ -1,16 +1,5 @@
-# Copyright 2024 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: 2024 Google LLC
+# SPDX-License-Identifier: Apache-2.0
 
 # Stuff we're patching or calling into directly
 from serial.tools.miniterm import main
@@ -38,7 +27,7 @@ def dehash_read(self, size, plain_read):
     #  - If not, continue as usual
     #  - If it does, dehash the buffered line and use clever tricks to swap it into the terminal
     #    view in-place (obviously, don't be using this method for raw serial IO or file output)
-    raw_read_data = plain_read(self, size).decode()
+    raw_read_data = plain_read(self, size).decode(errors="ignore")
     read_data = []
     for read_char in raw_read_data:
         if read_char == "\n":

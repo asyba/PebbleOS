@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 // @nolint
 // please don't change these values manually, they are derived from the spreadsheet
@@ -65,6 +52,25 @@
     APP("com.apple.mobileslideshow", TIMELINE_RESOURCE_NOTIFICATION_IOS_PHOTOS, GColorBlueMoonARGB8),
     APP("com.linkedin.LinkedIn", TIMELINE_RESOURCE_NOTIFICATION_LINKEDIN, GColorCobaltBlueARGB8),
     APP("com.tinyspeck.chatlyio", TIMELINE_RESOURCE_NOTIFICATION_SLACK, GColorFollyARGB8),
+    APP("com.automattic.beeper", TIMELINE_RESOURCE_NOTIFICATION_BEEPER, GColorVividVioletARGB8),
+    APP("xyz.blueskyweb.app", TIMELINE_RESOURCE_NOTIFICATION_BLUESKY, GColorVividCeruleanARGB8),
+    APP("com.hammerandchisel.discord", TIMELINE_RESOURCE_NOTIFICATION_DISCORD, GColorIndigoARGB8),
+    APP("com.duolingo.DuolingoMobile", TIMELINE_RESOURCE_NOTIFICATION_DUOLINGO, GColorGreenARGB8),
+    APP("im.vector.app", TIMELINE_RESOURCE_NOTIFICATION_ELEMENT, GColorMediumAquamarineARGB8),
+    APP("io.element.elementx", TIMELINE_RESOURCE_NOTIFICATION_ELEMENT, GColorDarkGreenARGB8),
+    APP("com.google.Dynamite", TIMELINE_RESOURCE_NOTIFICATION_GOOGLE_CHAT, GColorGreenARGB8),
+    APP("com.google.tasks", TIMELINE_RESOURCE_NOTIFICATION_GOOGLE_TASKS, GColorBlueMoonARGB8),
+    APP("io.robbie.HomeAssistant", TIMELINE_RESOURCE_NOTIFICATION_HOME_ASSISTANT, GColorVividCeruleanARGB8),
+    APP("com.valvesoftware.Steam", TIMELINE_RESOURCE_NOTIFICATION_STEAM, GColorCobaltBlueARGB8),
+    APP("com.microsoft.skype.teams", TIMELINE_RESOURCE_NOTIFICATION_TEAMS, GColorIndigoARGB8),
+    APP("com.burbn.barcelona", TIMELINE_RESOURCE_NOTIFICATION_THREADS, GColorDarkGrayARGB8),
+    APP("com.ubnt.protect", TIMELINE_RESOURCE_NOTIFICATION_UNIFI_PROTECT, GColorBlueMoonARGB8),
+    APP("us.zoom.videomeetings", TIMELINE_RESOURCE_NOTIFICATION_ZOOM, GColorVividCeruleanARGB8),
+    APP("com.ebay.iphone", TIMELINE_RESOURCE_NOTIFICATION_EBAY, GColorRedARGB8),
+    APP("com.revolut.revolut", TIMELINE_RESOURCE_PAY_BILL, GColorDarkGrayARGB8),
+    APP("com.transferwise.Transferwise", TIMELINE_RESOURCE_PAY_BILL, GColorGreenARGB8),
+    APP("de.no26.Number26", TIMELINE_RESOURCE_PAY_BILL, GColorCadetBlueARGB8),
+    APP("com.bunq.ios", TIMELINE_RESOURCE_PAY_BILL, GColorVividCeruleanARGB8),
 #endif
 
 #undef APP

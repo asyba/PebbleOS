@@ -1,18 +1,7 @@
-/*
- * Copyright 2025 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2025 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+#include "gh3x2x_tuning_service.h"
 
 #include <FreeRTOS.h>
 #include <bluetooth/init.h>
@@ -83,7 +72,7 @@ void bt_driver_init(void) {
   TaskParameters_t host_task_params = {
       .pvTaskCode = prv_host_task_main,
       .pcName = "NimbleHost",
-      .usStackDepth = 4000 / sizeof(StackType_t),  // TODO: probably reduce this
+      .usStackDepth = 5000 / sizeof(StackType_t),
       .uxPriority = (configMAX_PRIORITIES - 2) | portPRIVILEGE_BIT,
       .puxStackBuffer = NULL,
   };
@@ -122,6 +111,10 @@ bool bt_driver_start(BTDriverConfig *config) {
   pebble_pairing_service_init();
   ble_svc_bas_init();
   
+#if defined(MANUFACTURING_FW) && defined(HRM_USE_GH3X2X)
+  gh3x2x_tuning_service_init();
+#endif
+
   ble_hs_sched_start();
   f_rc = xSemaphoreTake(s_host_started, milliseconds_to_ticks(s_bt_stack_start_stop_timeout_ms));
   if (f_rc != pdTRUE) {

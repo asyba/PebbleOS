@@ -1,43 +1,30 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "applib/app.h"
 #include "applib/graphics/bitblt.h"
 #include "applib/ui/ui.h"
 #include "applib/ui/window_private.h"
+#include "applib/ui/dialogs/confirmation_dialog.h"
 #include "apps/prf_apps/mfg_accel_app.h"
 #include "apps/prf_apps/mfg_als_app.h"
 #include "apps/prf_apps/mfg_bt_device_name_app.h"
-#include "apps/prf_apps/mfg_bt_sig_rf_app.h"
-#include "apps/prf_apps/mfg_serial_qr_app.h"
+#include "apps/prf_apps/mfg_charge_app.h"
+#include "apps/prf_apps/mfg_backlight_app.h"
 #include "apps/prf_apps/mfg_button_app.h"
-#include "apps/prf_apps/mfg_certification_app.h"
+#include "apps/prf_apps/mfg_discharge_app.h"
 #include "apps/prf_apps/mfg_display_app.h"
 #include "apps/prf_apps/mfg_hrm_app.h"
-#include "apps/prf_apps/mfg_mic_app.h"
+#include "apps/prf_apps/mfg_hrm_ctr_leakage_obelix_app.h"
+#include "apps/prf_apps/mfg_mic_asterix_app.h"
+#include "apps/prf_apps/mfg_mic_obelix_app.h"
 #include "apps/prf_apps/mfg_program_color_app.h"
-#include "apps/prf_apps/mfg_runin_app.h"
-#include "apps/prf_apps/mfg_battery_discharge_app.h"
-#include "apps/prf_apps/mfg_speaker_app.h"
-#include "apps/prf_apps/mfg_vibe_app.h"
-#include "apps/prf_apps/mfg_touch_app.h"
-#include "apps/prf_apps/mfg_backlight_app.h"
-#include "apps/prf_apps/mfg_audio_app.h"
-#include "apps/prf_apps/mfg_pdm_mic_app.h"
+#include "apps/prf_apps/mfg_info_qr_app.h"
+#include "apps/prf_apps/mfg_speaker_asterix_app.h"
+#include "apps/prf_apps/mfg_speaker_obelix_app.h"
 #include "apps/prf_apps/mfg_test_aging_app.h"
+#include "apps/prf_apps/mfg_touch_app.h"
+#include "apps/prf_apps/mfg_vibration_app.h"
 #include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
 #include "kernel/util/standby.h"
@@ -65,7 +52,15 @@ typedef struct {
   SimpleMenuSection menu_section;
 } MfgMenuAppData;
 
+typedef struct {
+  Window *window;
+  SimpleMenuLayer *menu_layer;
+  SimpleMenuSection menu_section;
+} ExtrasMenuData;
+
 static uint16_t s_menu_position = 0;
+static uint16_t s_extras_menu_position = 0;
+static bool s_show_extras_on_launch = false;
 
 #if MFG_INFO_RECORDS_TEST_RESULTS
 static GBitmap *s_menu_icons[2];
@@ -78,12 +73,18 @@ static void prv_launch_app_cb(void *data) {
   app_manager_launch_new_app(&(AppLaunchConfig) { .md = data });
 }
 
+//! Callback to launch app and return to extras menu
+static void prv_launch_app_from_extras_cb(void *data) {
+  s_show_extras_on_launch = true;
+  app_manager_launch_new_app(&(AppLaunchConfig) { .md = data });
+}
+
 static void prv_select_bt_device_name(int index, void *context) {
   launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_bt_device_name_app_get_info());
 }
 
-static void prv_select_serial_qr(int index, void *context) {
-  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_serial_qr_app_get_info());
+static void prv_select_info_qr(int index, void *context) {
+  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_info_qr_app_get_info());
 }
 
 #if PBL_ROUND
@@ -108,51 +109,45 @@ static void prv_select_display(int index, void *context) {
 static void prv_select_backlight(int index, void *context) {
   launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_backlight_app_get_info());
 }
-
-static void prv_select_audio(int index, void *context) {
-  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_audio_app_get_info());
-}
-
-static void prv_select_pdm_mic(int index, void *context) {
-  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_pdm_mic_app_get_info());
-}
 #endif
 
-static void prv_select_runin(int index, void *context) {
-  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_runin_app_get_info());
+static void prv_select_charge(int index, void *context) {
+  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_charge_app_get_info());
 }
 
-static void prv_select_battery_discharge(int index, void *context) {
-  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_battery_discharge_app_get_info());
-}
-
-static void prv_select_vibe(int index, void *context) {
-  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_vibe_app_get_info());
+static void prv_select_vibration(int index, void *context) {
+  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_vibration_app_get_info());
 }
 
 static void prv_select_als(int index, void *context) {
   launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_als_app_get_info());
 }
 
-#if PLATFORM_ASTERIX
 static void prv_select_speaker(int index, void *context) {
-  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_speaker_app_get_info());
+#if PLATFORM_ASTERIX
+  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_speaker_asterix_app_get_info());
+#elif PLATFORM_OBELIX
+  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_speaker_obelix_app_get_info());
+#endif
 }
 
 static void prv_select_mic(int index, void *context) {
-  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_mic_app_get_info());
-}
+#if PLATFORM_ASTERIX
+  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_mic_asterix_app_get_info());
+#elif PLATFORM_OBELIX
+  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_mic_obelix_app_get_info());
 #endif
-
-#if !PLATFORM_SILK && !PLATFORM_ASTERIX && !PLATFORM_OBELIX
-static void prv_select_bt_sig_rf(int index, void *context) {
-  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_bt_sig_rf_app_get_info());
 }
-#endif
 
 #if CAPABILITY_HAS_BUILTIN_HRM
 static void prv_select_hrm(int index, void *context) {
   launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_hrm_app_get_info());
+}
+#endif
+
+#if PLATFORM_OBELIX && defined(MANUFACTURING_FW)
+static void prv_select_hrm_ctr_leakage_obelix(int index, void *context) {
+  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_hrm_ctr_leakage_obelix_app_get_info());
 }
 #endif
 
@@ -161,10 +156,6 @@ static void prv_select_touch(int index, void *context) {
   launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_touch_app_get_info());
 }
 #endif
-
-static void prv_select_certification(int index, void *context) {
-  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_certification_app_get_info());
-}
 
 static void prv_select_program_color(int index, void *context) {
   launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_program_color_app_get_info());
@@ -176,15 +167,118 @@ static void prv_select_test_aging(int index, void *context) {
 }
 #endif
 
-static void prv_select_load_prf(int index, void *context) {
+static void prv_extras_select_accel(int index, void *context) {
+  // Launch app and mark to return to extras menu when it exits
+  launcher_task_add_callback(prv_launch_app_from_extras_cb, (void*) mfg_accel_app_get_info());
+}
+
+static void prv_extras_select_discharge(int index, void *context) {
+  // Launch app and mark to return to extras menu when it exits
+  launcher_task_add_callback(prv_launch_app_from_extras_cb, (void*) mfg_discharge_app_get_info());
+}
+
 #if PLATFORM_OBELIX
-  // On Obelix MFG, we invalidate all slots so it will boot into PRF next time
-  firmware_storage_invalidate_firmware_slot(0);
-  firmware_storage_invalidate_firmware_slot(1);
-#else
-  boot_bit_set(BOOT_BIT_FORCE_PRF);
+static void prv_extras_select_test_aging(int index, void *context) {
+  // Launch app and mark to return to extras menu when it exits
+  launcher_task_add_callback(prv_launch_app_from_extras_cb, (void*) mfg_test_aging_app_get_info());
+}
 #endif
-  system_reset();
+
+static void prv_extras_window_load(Window *window) {
+  ExtrasMenuData *data = window_get_user_data(window);
+
+  Layer *window_layer = window_get_root_layer(data->window);
+  GRect bounds = window_layer->bounds;
+
+  const SimpleMenuItem extras_menu_items[] = {
+    { .title = "Test Accel",        .callback = prv_extras_select_accel },
+#if CAPABILITY_HAS_BUILTIN_HRM
+    { .title = "Test HRM",          .callback = prv_select_hrm },
+#endif
+    { .title = "Test Discharge", .callback = prv_extras_select_discharge },
+#if PLATFORM_OBELIX
+    { .title = "Test Aging",        .callback = prv_extras_select_test_aging },
+#endif
+  };
+
+  SimpleMenuItem *menu_items = app_malloc(sizeof(extras_menu_items));
+  memcpy(menu_items, extras_menu_items, sizeof(extras_menu_items));
+
+  data->menu_section = (SimpleMenuSection) {
+    .num_items = ARRAY_LENGTH(extras_menu_items),
+    .items = menu_items
+  };
+
+  data->menu_layer = simple_menu_layer_create(bounds, data->window, &data->menu_section, 1, NULL);
+  layer_add_child(window_layer, simple_menu_layer_get_layer(data->menu_layer));
+
+  // Restore the previous selection position
+  simple_menu_layer_set_selected_index(data->menu_layer, s_extras_menu_position, false);
+}
+
+static void prv_extras_window_unload(Window *window) {
+  ExtrasMenuData *data = window_get_user_data(window);
+
+  // Save the current selection position
+  s_extras_menu_position = simple_menu_layer_get_selected_index(data->menu_layer);
+
+  simple_menu_layer_destroy(data->menu_layer);
+  app_free(data);
+}
+
+static void prv_select_extras(int index, void *context) {
+  ExtrasMenuData *data = app_malloc_check(sizeof(ExtrasMenuData));
+  *data = (ExtrasMenuData){};
+
+  data->window = window_create();
+  window_init(data->window, "Extras");
+  window_set_user_data(data->window, data);
+  window_set_window_handlers(data->window, &(WindowHandlers) {
+    .load = prv_extras_window_load,
+    .unload = prv_extras_window_unload,
+  });
+  window_set_fullscreen(data->window, true);
+
+  app_window_stack_push(data->window, true);
+}
+
+static void prv_load_prf_confirmed(ClickRecognizerRef recognizer, void *context) {
+  ConfirmationDialog *confirmation_dialog = (ConfirmationDialog *)context;
+  confirmation_dialog_pop(confirmation_dialog);
+
+  bool confirmed = (click_recognizer_get_button_id(recognizer) == BUTTON_ID_UP);
+  if (confirmed) {
+#if PLATFORM_OBELIX
+    // On Obelix MFG, we invalidate all slots so it will boot into PRF next time
+    firmware_storage_invalidate_firmware_slot(0);
+    firmware_storage_invalidate_firmware_slot(1);
+#else
+    boot_bit_set(BOOT_BIT_FORCE_PRF);
+#endif
+    system_reset();
+  }
+}
+
+static void prv_load_prf_click_config(void *context) {
+  window_single_click_subscribe(BUTTON_ID_UP, prv_load_prf_confirmed);
+  window_single_click_subscribe(BUTTON_ID_DOWN, prv_load_prf_confirmed);
+  window_single_click_subscribe(BUTTON_ID_BACK, prv_load_prf_confirmed);
+}
+
+static void prv_select_load_prf(int index, void *context) {
+  ConfirmationDialog *confirmation_dialog = confirmation_dialog_create("Load PRF");
+  Dialog *dialog = confirmation_dialog_get_dialog(confirmation_dialog);
+
+  dialog_set_text(dialog, "Load PRF?\n\nThis action cannot be undone!");
+  dialog_set_background_color(dialog, GColorOrange);
+  dialog_set_text_color(dialog, GColorWhite);
+
+  confirmation_dialog_set_click_config_provider(confirmation_dialog, prv_load_prf_click_config);
+
+  ActionBarLayer *action_bar = confirmation_dialog_get_action_bar(confirmation_dialog);
+  action_bar_layer_set_context(action_bar, confirmation_dialog);
+
+  app_confirmation_dialog_push(confirmation_dialog);
 }
 
 static void prv_select_reset(int index, void *context) {
@@ -238,47 +332,37 @@ static size_t prv_create_menu_items(SimpleMenuItem** out_menu_items) {
   // Define a const blueprint on the stack.
   const SimpleMenuItem s_menu_items[] = {
     { .title = "BT Device Name",    .callback = prv_select_bt_device_name },
-    { .title = "Device Serial",     .callback = prv_select_serial_qr },
+    { .title = "Device Info",       .callback = prv_select_info_qr },
+    { .icon = prv_get_icon_for_test(MfgTest_Buttons),
+      .title = "Test Buttons",      .callback = prv_select_button },
 #if PBL_ROUND
     { .title = "Calibrate Display", .callback = prv_select_calibrate_display },
 #endif
-    { .title = "Test Accel",        .callback = prv_select_accel },
-    { .icon = prv_get_icon_for_test(MfgTest_Buttons),
-      .title = "Test Buttons",      .callback = prv_select_button },
-    { .icon = prv_get_icon_for_test(MfgTest_Display),
+      { .icon = prv_get_icon_for_test(MfgTest_Display),
       .title = "Test Display",      .callback = prv_select_display },
 #if CAPABILITY_HAS_TOUCHSCREEN
     { .title = "Test Touch",        .callback = prv_select_touch },
 #endif
 #if PLATFORM_OBELIX
     { .title = "Test Backlight",    .callback = prv_select_backlight },
-    { .title = "Test Audio",        .callback = prv_select_audio },
-    { .title = "Test PDM Mic",        .callback = prv_select_pdm_mic },
 #endif
-    { .icon = prv_get_icon_for_test(MfgTest_ALS),
-      .title = "Test ALS",          .callback = prv_select_als },
-    { .title = "Test Runin",        .callback = prv_select_runin },
-    { .title = "Test Batt Discharge", .callback = prv_select_battery_discharge },
-    { .icon = prv_get_icon_for_test(MfgTest_Vibe),
-      .title = "Test Vibe",         .callback = prv_select_vibe },
-#if !PLATFORM_SILK && !PLATFORM_ASTERIX && !PLATFORM_OBELIX
-    { .title = "Test bt_sig_rf",    .callback = prv_select_bt_sig_rf },
-#endif
-#if CAPABILITY_HAS_BUILTIN_HRM
-    { .title = "Test HRM",          .callback = prv_select_hrm },
-#endif
-#if PLATFORM_ASTERIX
+#if PLATFORM_ASTERIX || PLATFORM_OBELIX
     { .title = "Test Speaker",      .callback = prv_select_speaker },
     { .title = "Test Microphone",   .callback = prv_select_mic },
 #endif
-#if PLATFORM_OBELIX
-    { .title = "Test Aging",        .callback = prv_select_test_aging },
+    { .icon = prv_get_icon_for_test(MfgTest_ALS),
+      .title = "Test ALS",          .callback = prv_select_als },
+    { .icon = prv_get_icon_for_test(MfgTest_Vibe),
+      .title = "Test Vibration",    .callback = prv_select_vibration },
+#if PLATFORM_OBELIX && defined(MANUFACTURING_FW)
+    { .title = "Test HRM CTR/L",          .callback = prv_select_hrm_ctr_leakage_obelix },
 #endif
-    { .title = "Certification",     .callback = prv_select_certification },
     { .title = "Program Color",     .callback = prv_select_program_color },
+    { .title = "Test Charge",       .callback = prv_select_charge },
     { .title = "Load PRF",          .callback = prv_select_load_prf },
     { .title = "Reset",             .callback = prv_select_reset },
-    { .title = "Shutdown",          .callback = prv_select_shutdown }
+    { .title = "Shutdown",          .callback = prv_select_shutdown },
+    { .title = "Extras",            .callback = prv_select_extras },
   };
 
   // Copy it into the heap so we can modify it.
@@ -353,6 +437,12 @@ static void s_main(void) {
   window_set_overrides_back_button(data->window, true);
   window_set_fullscreen(data->window, true);
   app_window_stack_push(data->window, true /*animated*/);
+
+  // If returning from an app launched from extras menu, open extras menu
+  if (s_show_extras_on_launch) {
+    s_show_extras_on_launch = false;
+    prv_select_extras(0, NULL);
+  }
 
   app_event_loop();
 

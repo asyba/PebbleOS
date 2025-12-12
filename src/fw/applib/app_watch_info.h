@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -39,8 +26,8 @@ typedef enum {
   WATCH_INFO_MODEL_PEBBLE_2_HR, //!< Pebble 2 HR
   WATCH_INFO_MODEL_PEBBLE_2_SE, //!< Pebble 2 SE
   WATCH_INFO_MODEL_PEBBLE_TIME_2, //!< Pebble Time 2
-  WATCH_INFO_MODEL_COREDEVICES_C2D, //!< CoreDevices C2D (Core 2 Duo)
-  WATCH_INFO_MODEL_COREDEVICES_CT2, //!< CoreDevices CT2 (Core Time 2)
+  WATCH_INFO_MODEL_COREDEVICES_P2D, //!< CoreDevices P2D (Pebble 2 Duo)
+  WATCH_INFO_MODEL_COREDEVICES_PT2, //!< CoreDevices PT2 (Pebble Time 2)
 
   WATCH_INFO_MODEL__MAX
 } WatchInfoModel;
@@ -90,10 +77,13 @@ typedef enum {
   WATCH_INFO_COLOR_PEBBLE_TIME_2_SILVER = 32, //!< Pebble Time 2, Silver
   WATCH_INFO_COLOR_PEBBLE_TIME_2_GOLD = 33, //!< Pebble Time 2, Gold
 
-  WATCH_INFO_COLOR_COREDEVICES_C2D_BLACK = 34, //!< CoreDevices C2D, Black
-  WATCH_INFO_COLOR_COREDEVICES_C2D_WHITE = 35, //!< CoreDevices C2D, White
+  WATCH_INFO_COLOR_COREDEVICES_P2D_BLACK = 34, //!< CoreDevices P2D, Black
+  WATCH_INFO_COLOR_COREDEVICES_P2D_WHITE = 35, //!< CoreDevices P2D, White
 
-  WATCH_INFO_COLOR_COREDEVICES_CT2_BLACK = 36, //!< CoreDevices CT2, Black
+  WATCH_INFO_COLOR_COREDEVICES_PT2_BLACK_GREY = 36, //!< CoreDevices PT2, Black/Grey
+  WATCH_INFO_COLOR_COREDEVICES_PT2_BLACK_RED = 37, //!< CoreDevices PT2, Black/Red
+  WATCH_INFO_COLOR_COREDEVICES_PT2_SILVER_BLUE = 38, //!< CoreDevices PT2, Silver/Blue
+  WATCH_INFO_COLOR_COREDEVICES_PT2_SILVER_GREY = 39, //!< CoreDevices PT2, Silver/Grey
   WATCH_INFO_COLOR__MAX
 } WatchInfoColor;
 

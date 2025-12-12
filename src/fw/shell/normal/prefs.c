@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "quick_launch.h"
 #include "shell/normal/quick_launch.h"
@@ -86,7 +73,7 @@ static uint8_t s_motion_sensitivity = 85; // Default to High
 
 #if CAPABILITY_HAS_DYNAMIC_BACKLIGHT
 #define PREF_KEY_BACKLIGHT_DYNAMIC_INTENSITY "lightDynamicIntensity"
-static bool s_backlight_dynamic_intensity_enabled = false;
+static bool s_backlight_dynamic_intensity_enabled = true;
 
 #define PREF_KEY_DYNAMIC_BACKLIGHT_MIN_THRESHOLD "dynBacklightMinThreshold"
 static uint32_t s_dynamic_backlight_min_threshold = 0; // default set from board config in shell_prefs_init()
@@ -227,7 +214,7 @@ static uint16_t s_timeline_peek_before_time_m =
 #endif
 static bool s_coredump_on_request_enabled = false;
 #if PLATFORM_OBELIX
-static uint8_t s_legacy_app_render_mode = 0; // Default to bezel mode
+static uint8_t s_legacy_app_render_mode = 1; // Default to scaled mode
 #endif
 
 #define PREF_KEY_SETTINGS_MENU_HIGHLIGHT_COLOR "settingsMenuHighlightColor"
@@ -700,6 +687,10 @@ void shell_prefs_init(void) {
   s_dynamic_backlight_min_threshold = BOARD_CONFIG.dynamic_backlight_min_threshold;
   s_dynamic_backlight_max_threshold = BOARD_CONFIG.dynamic_backlight_max_threshold;
 #endif
+  // Use board-specific default motion sensitivity if provided (non-zero)
+  if (BOARD_CONFIG_ACCEL.accel_config.default_motion_sensitivity != 0) {
+    s_motion_sensitivity = BOARD_CONFIG_ACCEL.accel_config.default_motion_sensitivity;
+  }
   s_mutex = mutex_create();
 
   SettingsFile file = {{0}};

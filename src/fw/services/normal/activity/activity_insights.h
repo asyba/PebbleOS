@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -106,9 +93,6 @@ void activity_insights_test_push_summary_pins(void);
 
 //! Used by test apps: Pushes the 2 rewards to the watch
 void activity_insights_test_push_rewards(void);
-
-//! Used by test apps: Pushes the day 1, 4 and 10 insights
-void activity_insights_test_push_day_insights(void);
 
 //! Used by test apps: Pushes a run and a walk notification
 void activity_insights_test_push_walk_run_sessions(void);

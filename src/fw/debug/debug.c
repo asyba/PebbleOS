@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "debug.h"
 #include "advanced_logging.h"
@@ -202,6 +189,10 @@ void debug_init(McuRebootReason mcu_reboot_reason) {
   char build_id_string[64];
   version_copy_current_build_id_hex_string(build_id_string, 64);
   DEBUG_LOG(LOG_LEVEL_INFO, "BUILD ID: %s", build_id_string);
+
+#if CAPABILITY_HAS_PBLBOOT
+  DEBUG_LOG(LOG_LEVEL_INFO, "Boot slot: %d", TINTIN_METADATA.is_slot_0 ? 0 : 1);
+#endif
 
   #if MEMFAULT
   // This must be called before debug_reboot_reason_print which resets the reason

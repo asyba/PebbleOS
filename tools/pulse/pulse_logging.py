@@ -1,16 +1,5 @@
-# Copyright 2024 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: 2024 Google LLC
+# SPDX-License-Identifier: Apache-2.0
 
 import collections
 import json
@@ -66,7 +55,7 @@ if __name__ == '__main__':
     from log_hashing import log_dehash
 
     if len(sys.argv) != 2:
-        print 'Usage: python ' + sys.argv[0] + ' <loghash_dict_path>'
+        print('Usage: python ' + sys.argv[0] + ' <loghash_dict_path>')
         sys.exit(1)
 
     loghash_dict_path = sys.argv[1]
@@ -81,7 +70,7 @@ if __name__ == '__main__':
     def start_logging(logger):
         while True:
             msg = logger.receive()
-            print dehash(str(msg))
+            print(dehash(str(msg)))
 
     with socket.Connection.open_dbgserial('ftdi://ftdi:4232:1/3') as connection:
         logging_thread = threading.Thread(target=start_logging, args=[connection.logging])
@@ -91,5 +80,5 @@ if __name__ == '__main__':
         inputCommand = raw_input('>')
         while inputCommand:
             for message in connection.prompt.command_and_response(inputCommand):
-                print message
+                print(message)
             inputCommand = raw_input('>')

@@ -1,24 +1,10 @@
-/*
- * Copyright 2025 Core Devices LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2025 Core Devices LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "drivers/mic.h"
 #include "board/board.h"
 #include "kernel/pbl_malloc.h"
 #include "system/logging.h"
-#include "kernel/events.h"
 #include "os/mutex.h"
 #include "system/passert.h"
 #include "util/circular_buffer.h"
@@ -36,7 +22,7 @@
 #define PDM_CH_COUNT                       (2)
 
 // Circular buffer configuration
-#define PDM_CIRCULAR_BUF_SIZE_MS           (128)
+#define PDM_CIRCULAR_BUF_SIZE_MS           (320)
 #define PDM_CIRCULAR_BUF_SIZE_SAMPLES      ((MIC_SAMPLE_RATE * PDM_CIRCULAR_BUF_SIZE_MS) / 1000)
 #define PDM_CIRCULAR_BUF_SIZE_BYTES        (PDM_CIRCULAR_BUF_SIZE_SAMPLES * sizeof(int16_t) * PDM_CH_COUNT)
 
@@ -113,51 +99,70 @@ static void prv_free_buffers(MicDeviceState *state) {
   }
 }
 
-static void prv_dispatch_samples_common(void) {
+// Process at most this many frames per system task callback to allow
+// other tasks (especially Bluetooth) to run and prevent send buffer overflow
+#define MAX_FRAMES_PER_SYSTEM_TASK_CALLBACK 64
+
+static void prv_dispatch_samples_system_task(void *data) {  
+  // Defensive check
+  if (!s_state || !s_state->is_initialized) {
+    return;
+  }
+  
   mutex_lock_recursive(s_state->mutex);
 
-  // Only process if we have exactly one complete frame available and buffers are allocated
+  // Process a limited number of frames to provide backpressure
   if (s_state->is_running && s_state->data_handler && s_state->audio_buffer && s_state->circ_buffer_storage) {
     
-    // Check if we have enough data for exactly one frame
     size_t frame_size_bytes = s_state->audio_buffer_len * sizeof(int16_t);
+    int frames_processed = 0;
     
-    // Use the circular buffer API to check available data
-    uint16_t available_data = circular_buffer_get_read_space_remaining(&s_state->circ_buffer);
-    
-    while (available_data >= frame_size_bytes) {
-      // Copy exactly one frame
+    while (s_state->is_running && s_state->data_handler && frames_processed < MAX_FRAMES_PER_SYSTEM_TASK_CALLBACK) {
+      // Check if we have enough data for a complete frame
+      uint16_t available_data = circular_buffer_get_read_space_remaining(&s_state->circ_buffer);
+      
+      if (available_data < frame_size_bytes) {
+        break;  // Not enough data for another frame
+      }
+
+      // Copy one frame
       uint16_t bytes_copied = circular_buffer_copy(&s_state->circ_buffer,
           (uint8_t *)s_state->audio_buffer,
           frame_size_bytes);
 
       if (bytes_copied == frame_size_bytes) {
-        // Call callback with exactly one frame
+        // Call callback with the frame
         s_state->data_handler(s_state->audio_buffer, s_state->audio_buffer_len, s_state->handler_context);
         
-        // Consume exactly the frame we processed
+        // Consume the frame we processed
         circular_buffer_consume(&s_state->circ_buffer, bytes_copied);
+        
+        frames_processed++;
+        
+        // Feed the system task watchdog periodically during long processing
+        system_task_watchdog_feed();
+      } else {
+        break;  // Failed to copy, stop processing
       }
-      available_data -= bytes_copied;
     }
+    
+    // If we still have data available after processing, reschedule immediately
+    uint16_t remaining_data = circular_buffer_get_read_space_remaining(&s_state->circ_buffer);
+    if (remaining_data >= frame_size_bytes && s_state->is_running && !s_state->main_pending) {
+      s_state->main_pending = true;
+      if (!system_task_add_callback(prv_dispatch_samples_system_task, NULL)) {
+        s_state->main_pending = false;
+      }
+    } else {
+      // Clear pending flag only if we're done processing
+      s_state->main_pending = false;
+    }
+  } else {
+    // Clear pending flag if we can't process
+    s_state->main_pending = false;
   }
   
   mutex_unlock_recursive(s_state->mutex);
-}
-
-static void prv_dispatch_samples_main(void *data) {  
-  // Defensive check and clear pending flag
-  if (!s_state || !s_state->is_initialized) {
-    return;
-  }
-  
-  // Always clear the pending flag, even if we can't process
-  s_state->main_pending = false;
-  
-  // Only process if still running and properly initialized
-  if (s_state->is_running) {
-    prv_dispatch_samples_common();
-  }
 }
 
 static void prv_dma_data_processing(uint8_t* data, uint16_t size)
@@ -180,7 +185,7 @@ static void prv_dma_data_processing(uint8_t* data, uint16_t size)
     return;
   }
   
-  // Write samples to circular buffer
+  // Write samples directly to circular buffer
   if (!circular_buffer_write(&s_state->circ_buffer, data, size)) {
     PBL_LOG(LOG_LEVEL_ERROR, "circular buffer full");
     return;  // Buffer is full, drop remaining samples
@@ -191,15 +196,10 @@ static void prv_dma_data_processing(uint8_t* data, uint16_t size)
   uint16_t available_data = circular_buffer_get_read_space_remaining(&s_state->circ_buffer);
   if (available_data >= frame_size_bytes  && !s_state->main_pending) {
     s_state->main_pending = true;
-    PebbleEvent e = {
-      .type = PEBBLE_CALLBACK_EVENT,
-      .callback = {
-        .callback = prv_dispatch_samples_main,
-        .data = NULL
-      }
-    };
     
-    if (!event_put_isr(&e)) {
+    // Dispatch to system task instead of kernel event queue (matches asterix behavior)
+    bool should_context_switch = false;
+    if (!system_task_add_callback_from_isr(prv_dispatch_samples_system_task, NULL, &should_context_switch)) {
       s_state->main_pending = false;
     }
   }
@@ -363,4 +363,9 @@ bool mic_is_running(const MicDevice *this) {
   PBL_ASSERTN(this->state);
   
   return this->state->is_running;
+}
+
+uint32_t mic_get_channels(const MicDevice *this) {
+  PBL_ASSERTN(this);
+  return this->channels ? this->channels : 1;
 }

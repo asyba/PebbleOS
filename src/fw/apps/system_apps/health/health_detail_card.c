@@ -1,22 +1,10 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "health_detail_card.h"
 
 #include "applib/pbl_std/pbl_std.h"
+#include "board/display.h"
 #include "kernel/pbl_malloc.h"
 #include "resource/resource_ids.auto.h"
 #include "services/common/i18n/i18n.h"
@@ -25,11 +13,16 @@
 
 #include "system/logging.h"
 
+// Compile-time display offset calculations
+#define HEALTH_Y_OFFSET ((DISP_ROWS - LEGACY_2X_DISP_ROWS) / 2)
+#define HEALTH_PADDING_OFFSET (HEALTH_Y_OFFSET / 10)
+#define HEALTH_HEIGHT_OFFSET (HEALTH_Y_OFFSET / 5)
+
 #define CORNER_RADIUS (3)
 
 static void prv_draw_headings(HealthDetailCard *detail_card, GContext *ctx, const Layer *layer) {
-  const int16_t rect_padding = PBL_IF_RECT_ELSE(5, 22);
-  const int16_t rect_height = 35;
+  const int16_t rect_padding = PBL_IF_RECT_ELSE(5 + HEALTH_PADDING_OFFSET, 22);
+  const int16_t rect_height = 35 + HEALTH_HEIGHT_OFFSET;
 
   for (int i = 0; i < detail_card->num_headings; i++) {
     HealthDetailHeading *heading = &detail_card->headings[i];
@@ -110,8 +103,8 @@ static void prv_draw_headings(HealthDetailCard *detail_card, GContext *ctx, cons
 }
 
 static void prv_draw_subtitles(HealthDetailCard *detail_card, GContext *ctx, const Layer *layer) {
-  const int16_t rect_padding = PBL_IF_RECT_ELSE(5, 0);
-  const int16_t rect_height = PBL_IF_RECT_ELSE(23, 36);
+  const int16_t rect_padding = PBL_IF_RECT_ELSE(5 + HEALTH_PADDING_OFFSET, 0);
+  const int16_t rect_height = PBL_IF_RECT_ELSE(23 + HEALTH_HEIGHT_OFFSET, 36);
 
   for (int i = 0; i < detail_card->num_subtitles; i++) {
     HealthDetailSubtitle *subtitle = &detail_card->subtitles[i];
@@ -224,8 +217,8 @@ static void prv_draw_zones(HealthDetailCard *detail_card, GContext *ctx) {
     return;
   }
 
-  const int16_t rect_padding = 5;
-  const int16_t rect_height = 33;
+  const int16_t rect_padding = 5 + HEALTH_PADDING_OFFSET;
+  const int16_t rect_height = 33 + HEALTH_HEIGHT_OFFSET;
 
   GRect zone_rect = grect_inset(detail_card->window.layer.bounds, GEdgeInsets(rect_padding));
   zone_rect.origin.y += detail_card->y_origin;

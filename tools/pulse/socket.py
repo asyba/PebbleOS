@@ -1,19 +1,8 @@
-# Copyright 2024 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: 2024 Google LLC
+# SPDX-License-Identifier: Apache-2.0
 
 import logging
-import Queue
+from queue import Queue
 import struct
 import sys
 import threading
@@ -79,7 +68,7 @@ def decode_frame(frame):
     '''
     try:
         data = cobs.decode(frame)
-    except cobs.DecodeError, e:
+    except cobs.DecodeError as e:
         raise exceptions.FrameDecodeError(e.message)
     if len(data) < 5:
         raise exceptions.FrameDecodeError('frame too short')
@@ -92,7 +81,7 @@ def decode_frame(frame):
 
 def encode_frame(protocol, payload):
     frame = struct.pack('<B', protocol)
-    frame += payload
+    frame += payload.encode()
     fcs = stm32_crc.crc32(frame)
     frame += struct.pack('<I', fcs)
     return cobs.encode(frame)
@@ -191,7 +180,7 @@ class Connection(object):
     def send(self, protocol, payload):
         if self.closed:
             raise exceptions.PulseError('I/O operation on closed connection')
-        frame = ''.join(('\0', encode_frame(protocol, payload), '\0'))
+        frame = b''.join((b'\0', encode_frame(protocol, payload), b'\0'))
         logger.debug('Connection: sending %r', frame)
         with self.send_lock:
             self.iostream.write(frame)
@@ -347,7 +336,7 @@ class Connection(object):
         self.closed = False
         if self.initial_port_settings:
             self.iostream.applySettingsDict(self.initial_port_settings)
-        for attempt in xrange(5):
+        for attempt in range(5):
             logger.info('Opening link (attempt %d)...', attempt)
             self.send(self.PROTOCOL_LLC, self.LLC_LINK_OPEN_REQUEST)
             if self._link_open.wait(self.rtt):
@@ -439,6 +428,6 @@ if __name__ == '__main__':
             time.sleep(0.5)
             send_time = time.time()
             if sock.ping():
-                print "Ping rtt=%.2f ms" % ((time.time() - send_time) * 1000)
+                print("Ping rtt=%.2f ms" % ((time.time() - send_time) * 1000))
             else:
-                print "No echo"
+                print("No echo")

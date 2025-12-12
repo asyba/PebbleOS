@@ -1,18 +1,5 @@
-/*
- * Copyright 2025 Core Devices LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2025 Core Devices LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "mfg/mfg_info.h"
 #include "drivers/flash.h"
@@ -40,8 +27,8 @@ static MfgData prv_fetch_struct(void) {
   // Fallback data if not available
   if (result.data_version != CURRENT_DATA_VERSION) {
       result.data_version = CURRENT_DATA_VERSION;
-      result.color = WATCH_INFO_COLOR_COREDEVICES_CT2_BLACK;
-      strncpy(result.model, "CT2-BK", sizeof(result.model));
+      result.color = WATCH_INFO_COLOR_COREDEVICES_PT2_BLACK_GREY;
+      strncpy(result.model, "obelix", sizeof(result.model));
       result.model[MFG_INFO_MODEL_STRING_LENGTH - 1] = '\0';
   }
 
