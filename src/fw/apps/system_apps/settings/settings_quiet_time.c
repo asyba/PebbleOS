@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "settings_quiet_time.h"
 #include "settings_menu.h"
@@ -54,6 +41,7 @@ enum QuietTimeItem {
   QuietTimeItemWeekdayScheduled,
   QuietTimeItemWeekendScheduled,
   QuietTimeItemInterruptions,
+  QuietTimeItemNotifications,
   QuietTimeItem_Count,
 };
 
@@ -90,6 +78,36 @@ static const char *prv_get_dnd_mask_subtitle(void *i18n_key) {
       break;
   }
   return title;
+}
+
+static const DndNotificationMode s_dnd_notification_mode_cycle[] = {
+  DndNotificationModeShow,
+  DndNotificationModeHide,
+};
+
+static DndNotificationMode prv_cycle_dnd_notification_mode(void) {
+  DndNotificationMode mode = alerts_preferences_dnd_get_show_notifications();
+  int index = 0;
+  for (size_t i = 0; i < ARRAY_LENGTH(s_dnd_notification_mode_cycle); i++) {
+    if (s_dnd_notification_mode_cycle[i] == mode) {
+      index = i;
+      break;
+    }
+  }
+  mode = s_dnd_notification_mode_cycle[(index + 1) % ARRAY_LENGTH(s_dnd_notification_mode_cycle)];
+  alerts_preferences_dnd_set_show_notifications(mode);
+  return mode;
+}
+
+static const char *prv_get_dnd_notifications_enable(void *i18n_key) {
+  switch (alerts_preferences_dnd_get_show_notifications()) {
+    case DndNotificationModeShow:
+      return i18n_get("Show", i18n_key);
+    case DndNotificationModeHide:
+      return i18n_get("Hide", i18n_key);
+    default:
+      return "???";
+  }
 }
 
 ///////////////////////////////
@@ -274,6 +292,10 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       title = i18n_get("Interruptions", data);
       strncpy(subtitle, prv_get_dnd_mask_subtitle(data), buffer_length);
       break;
+    case QuietTimeItemNotifications:
+      title = i18n_get("Notifications", data);
+      strncpy(subtitle, prv_get_dnd_notifications_enable(data), buffer_length);
+      break;
     default:
         WTF;
   }
@@ -299,6 +321,9 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       break;
     case QuietTimeItemInterruptions:
       prv_cycle_dnd_mask();
+      break;
+    case QuietTimeItemNotifications:
+      prv_cycle_dnd_notification_mode();
       break;
     default:
         WTF;

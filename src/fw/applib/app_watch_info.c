@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "app_watch_info.h"
 
@@ -73,11 +60,14 @@ WatchInfoModel watch_info_get_model() {
     case WATCH_INFO_COLOR_PEBBLE_TIME_2_SILVER:
     case WATCH_INFO_COLOR_PEBBLE_TIME_2_GOLD:
       return WATCH_INFO_MODEL_PEBBLE_TIME_2;
-    case WATCH_INFO_COLOR_COREDEVICES_C2D_BLACK:
-    case WATCH_INFO_COLOR_COREDEVICES_C2D_WHITE:
-      return WATCH_INFO_MODEL_COREDEVICES_C2D;
-    case WATCH_INFO_COLOR_COREDEVICES_CT2_BLACK:
-      return WATCH_INFO_MODEL_COREDEVICES_CT2;
+    case WATCH_INFO_COLOR_COREDEVICES_P2D_BLACK:
+    case WATCH_INFO_COLOR_COREDEVICES_P2D_WHITE:
+      return WATCH_INFO_MODEL_COREDEVICES_P2D;
+    case WATCH_INFO_COLOR_COREDEVICES_PT2_BLACK_GREY:
+    case WATCH_INFO_COLOR_COREDEVICES_PT2_BLACK_RED:
+    case WATCH_INFO_COLOR_COREDEVICES_PT2_SILVER_BLUE:
+    case WATCH_INFO_COLOR_COREDEVICES_PT2_SILVER_GREY:
+      return WATCH_INFO_MODEL_COREDEVICES_PT2;
     case WATCH_INFO_COLOR_UNKNOWN:
     case WATCH_INFO_COLOR__MAX:
       return WATCH_INFO_MODEL_UNKNOWN;

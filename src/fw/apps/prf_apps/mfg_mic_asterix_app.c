@@ -1,18 +1,5 @@
-/*
- * Copyright 2025 Core Devices LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2025 Core Devices LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "mfg_sine_wave.h"
 
@@ -418,13 +405,13 @@ static void s_main(void) {
   app_event_loop();
 }
 
-const PebbleProcessMd *mfg_mic_app_get_info(void) {
+const PebbleProcessMd *mfg_mic_asterix_app_get_info(void) {
   static const PebbleProcessMdSystem s_app_info = {
       .common.main_func = &s_main,
       // UUID: 95ada1ce-04b3-46b0-8519-0b42260b5c39
       .common.uuid = {0x95, 0xad, 0xa1, 0xce, 0x04, 0xb3, 0x46, 0xb0,
                       0x85, 0x19, 0x0b, 0x42, 0x26, 0x0b, 0x5c, 0x39},
-      .name = "MfgMic",
+      .name = "MfgMicAsterix",
   };
   return (const PebbleProcessMd *)&s_app_info;
 }

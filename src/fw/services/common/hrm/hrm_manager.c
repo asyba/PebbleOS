@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "hrm_manager.h"
 #include "hrm_manager_private.h"
@@ -193,35 +180,35 @@ static void prv_handle_accel_data(void * data) {
 //
 // @param[in] data pointer to last received HRMdata or NULL if sensor powered off
 // @return true if sensor is stable
-static bool prv_is_sensor_stable(const HRMData *data) {
+static bool prv_is_sensor_bpm_stable(const HRMData *data) {
   // Passing a NULL data pointer means reset our state
   if (!data) {
-    s_manager_state.sensor_stable = false;
-    s_manager_state.sensor_start_ticks = 0;
+    s_manager_state.sensor_bpm_stable = false;
+    s_manager_state.sensor_bpm_start_ticks = 0;
     return false;
   }
 
   // Ignore the "no accel" quality reading samples. We seem to get these occasionally
   // and don't want them to mess up our state.
   if (data->hrm_quality == HRMQuality_NoAccel) {
-    return s_manager_state.sensor_stable;
+    return s_manager_state.sensor_bpm_stable;
   }
 
   // If we were stable before, just make sure we are still stable
-  if (s_manager_state.sensor_stable) {
+  if (s_manager_state.sensor_bpm_stable) {
     // If we just went on-wrist or off-wrist, reset the stable state
     bool off_wrist_now = (data->hrm_quality == HRMQuality_OffWrist);
     if (off_wrist_now != s_manager_state.off_wrist_when_stable) {
-      s_manager_state.sensor_stable = false;
-      s_manager_state.sensor_start_ticks = 0;
+      s_manager_state.sensor_bpm_stable = false;
+      s_manager_state.sensor_bpm_start_ticks = 0;
       return false;
     }
     return true;
   }
 
   // Start the tick counter if this is the first reading since power-on or off-wrist
-  if (s_manager_state.sensor_start_ticks == 0) {
-    s_manager_state.sensor_start_ticks = rtc_get_ticks();
+  if (s_manager_state.sensor_bpm_start_ticks == 0) {
+    s_manager_state.sensor_bpm_start_ticks = rtc_get_ticks();
   }
 
   // When first powering up, we can get "Excellent" quality readings the first few seconds, even
@@ -235,21 +222,21 @@ static bool prv_is_sensor_stable(const HRMData *data) {
   // Update our state
   if (quality >= HRMQuality_Good) {
     // Once we receive at least one good reading, we are stable
-    s_manager_state.sensor_stable = true;
+    s_manager_state.sensor_bpm_stable = true;
     s_manager_state.off_wrist_when_stable = false;
   } else {
     // We haven't yet received a good reading yet. Wait for a timeout...
-    RtcTicks elapased_ticks = rtc_get_ticks() - s_manager_state.sensor_start_ticks;
+    RtcTicks elapased_ticks = rtc_get_ticks() - s_manager_state.sensor_bpm_start_ticks;
     RtcTicks max_startup_time = milliseconds_to_ticks(HRM_SENSOR_SPIN_UP_SEC * MS_PER_SECOND);
     if (elapased_ticks >= max_startup_time) {
       // If it's been past the tolerable startup time, we have a valid reading - even though it
       // may indicate off-wrist.
-      s_manager_state.sensor_stable = true;
+      s_manager_state.sensor_bpm_stable = true;
       s_manager_state.off_wrist_when_stable = (quality == HRMQuality_OffWrist);
     }
   }
 
-  return s_manager_state.sensor_stable;
+  return s_manager_state.sensor_bpm_stable;
 }
 
 T_STATIC bool prv_can_turn_sensor_on(void) {
@@ -288,8 +275,8 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
           continue;
         }
         int64_t subscriber_age_ticks;
-        if (state->last_valid_ticks) {
-          subscriber_age_ticks = cur_ticks - state->last_valid_ticks;
+        if (state->last_valid_bpm_ticks) {
+          subscriber_age_ticks = cur_ticks - state->last_valid_bpm_ticks;
         } else {
           // Never got an update yet
           subscriber_age_ticks = milliseconds_to_ticks(state->update_interval_s * MS_PER_SECOND);
@@ -333,7 +320,7 @@ static void prv_update_hrm_enable_system_cb(void *unused) {
       sys_accel_manager_data_unsubscribe(s_manager_state.accel_state);
       s_manager_state.accel_state = NULL;
 
-      prv_is_sensor_stable(NULL);  // inform state machine that sensor got powered off
+      prv_is_sensor_bpm_stable(NULL);  // inform state machine that sensor got powered off
 
       // If we need the sensor on again later, turn on a timer to re-enable the HRM in enough time
       // to get a good reading for the next subscriber that needs one
@@ -386,21 +373,28 @@ static void prv_system_task_hrm_handler(void *context) {
           continue;
         }
         break;
-      case HRMEvent_LEDCurrent:
-        if (!(state->features & HRMFeature_LEDCurrent)) {
-          continue;
-        }
-        break;
       case HRMEvent_HRV:
         if (!(state->features & HRMFeature_HRV)) {
           continue;
         }
         break;
-      case HRMEvent_Diagnostics:
-        if (!(state->features & HRMFeature_Diagnostics)) {
+      case HRMEvent_SpO2:
+        if (!(state->features & HRMFeature_SpO2)) {
           continue;
         }
         break;
+#ifdef MANUFACTURING_FW
+      case HRMEvent_CTR:
+        if (!(state->features & HRMFeature_CTR)) {
+          continue;
+        }
+        break;
+      case HRMEvent_Leakage:
+        if (!(state->features & HRMFeature_Leakage)) {
+          continue;
+        }
+        break;
+#endif
       case HRMEvent_SubscriptionExpiring:
         continue;
     }
@@ -443,26 +437,37 @@ static void prv_populate_hrm_event(PebbleHRMEvent *event, HRMFeature feature, co
         },
       };
       break;
-    case HRMFeature_LEDCurrent:
+    case HRMFeature_SpO2:
       *event = (PebbleHRMEvent) {
-        .event_type = HRMEvent_LEDCurrent,
-        .led = {
-          .current_ua = data->led_current_ua,
-          .tia = data->ppg_data.tia[0]
+        .event_type = HRMEvent_SpO2,
+        .spo2 = {
+          .percent = data->spo2_percent,
+          .quality = data->spo2_quality,
         },
       };
       break;
-    case HRMFeature_Diagnostics:
+#ifdef MANUFACTURING_FW
+    case HRMFeature_CTR:
     {
-      HRMDiagnosticsData *debug = kernel_zalloc_check(sizeof(HRMDiagnosticsData));
-      debug->ppg_data = data->ppg_data;
-      debug->accel_data = data->accel_data;
+      HRMCTRData *ctr_data = kernel_zalloc_check(sizeof(HRMCTRData));
+      memcpy(ctr_data->ctr, data->ctr, sizeof(HRMCTRData)); 
       *event = (PebbleHRMEvent) {
-        .event_type = HRMEvent_Diagnostics,
-        .debug = debug,
+        .event_type = HRMEvent_CTR,
+        .ctr = ctr_data,
       };
       break;
     }
+    case HRMFeature_Leakage:
+    {
+      HRMLeakageData *leakage_data = kernel_zalloc_check(sizeof(HRMLeakageData));
+      memcpy(leakage_data->leakage, data->leakage, sizeof(HRMLeakageData));
+      *event = (PebbleHRMEvent) {
+        .event_type = HRMEvent_Leakage,
+        .leakage = leakage_data,
+      };
+      break;
+    }
+#endif
     default:
       WTF;
   }
@@ -501,23 +506,27 @@ void hrm_manager_new_data_cb(const HRMData *data) {
     // If the hrm manager should be disabled or we have no subscribers, this data is unwanted.
     goto unlock;
   }
-  // See if the sensor signal is stable or not
-  bool stable_sensor = prv_is_sensor_stable(data);
 
   HRM_LOG("HRM Data:");
-  HRM_LOG("Status %"PRIx8, data->hrm_status);
-  HRM_LOG("HRM: %"PRIu8"bpm, Quality: %d, Stable: %d", data->hrm_bpm, data->hrm_quality,
-          (int)stable_sensor);
-  HRM_LOG("PPG samples: %d", data->ppg_data.num_samples);
-  HRM_HEXDUMP(data->ppg_data.ppg, data->ppg_data.num_samples * sizeof(uint16_t));
-  HRM_LOG("TIA samples: %d", data->ppg_data.num_samples);
-  HRM_HEXDUMP(data->ppg_data.tia, data->ppg_data.num_samples * sizeof(uint16_t));
-  HRM_LOG("Accel samples: %"PRIu32, data->accel_data.num_samples);
-  HRM_LOG("LED %"PRIu16"uA, TIA: %"PRIu16, data->led_current_ua, data->tia);
+  if (data->features & HRMFeature_BPM) {
+    HRM_LOG("  BPM: %"PRIu8", Quality: %d", data->hrm_bpm, data->hrm_quality);
+  }
+  if (data->features & HRMFeature_HRV) {
+    HRM_LOG("  HRV PPI: %"PRIu16"ms, Quality: %d", data->hrv_ppi_ms, data->hrv_quality);
+  }
+  if (data->features & HRMFeature_SpO2) {
+    HRM_LOG("  SpO2: %"PRIu8", Quality: %d", data->spo2_percent, data->spo2_quality);
+  }
 
   time_t utc_now = rtc_get_time();
   RtcTicks cur_ticks = rtc_get_ticks();
   HRMFeature kernel_bg_features_sent = 0;
+
+  // See if the sensor BPM signal is stable or not
+  bool stable_bpm_sensor = false;
+  if (data->features & HRMFeature_BPM) {
+    stable_bpm_sensor = prv_is_sensor_bpm_stable(data);
+  }
 
   HRMSubscriberState *state = (HRMSubscriberState *)s_manager_state.subscribers;
   while (state) {
@@ -525,18 +534,18 @@ void hrm_manager_new_data_cb(const HRMData *data) {
 
     // Update the time stamp for when this subscriber last received an update if the sensor
     // is currently stable
-    if (stable_sensor) {
-      state->last_valid_ticks = cur_ticks;
+    if (stable_bpm_sensor && (data->features & HRMFeature_BPM)) {
+      state->last_valid_bpm_ticks = cur_ticks;
     }
 
     PebbleHRMEvent hrm_event;
     for (uint8_t i = 0; i < HRMFeatureShiftMax; ++i) {
       HRMFeature feature = (1 << i);
-      if (!(state->features & feature)) {
+      if (!(state->features & feature) || !(data->features & feature)) {
         continue;
       }
       // Only send BPM and HRV events if the sensor is stable
-      if (!stable_sensor && (feature == HRMFeature_BPM || feature == HRMFeature_HRV)) {
+      if (!stable_bpm_sensor && (feature == HRMFeature_BPM || feature == HRMFeature_HRV)) {
         continue;
       }
       if (state->callback_handler) {
@@ -775,7 +784,6 @@ void hrm_manager_enable(bool on) {
 
 
 static HRMSessionRef s_console_session = HRM_INVALID_SESSION_REF;
-static uint8_t s_tia_count = 0;
 static void prv_console_unsubscribe_callback(void *data) {
   sys_hrm_manager_unsubscribe(s_console_session);
   s_console_session = HRM_INVALID_SESSION_REF;
@@ -783,21 +791,17 @@ static void prv_console_unsubscribe_callback(void *data) {
 }
 
 static void prv_console_read_callback(PebbleHRMEvent *event, void *context) {
-  if (event->event_type == HRMEvent_LEDCurrent) {
-    if (s_tia_count++ == 5) { // Need to leave time for TIA to ramp up
-      system_task_add_callback(prv_console_unsubscribe_callback, NULL);
-      char buf[32];
-      prompt_send_response_fmt(buf, 32, "TIA: %"PRIu16, event->led.tia);
-      prompt_send_response_fmt(buf, 32, "LED: %"PRIu16"uA", event->led.current_ua);
-    }
+  if (event->event_type == HRMEvent_BPM) {
+    system_task_add_callback(prv_console_unsubscribe_callback, NULL);
+    char buf[32];
+    prompt_send_response_fmt(buf, 32, "BPM: %"PRIu8 " quality: %"PRIu8, event->bpm.bpm, event->bpm.quality);
   }
 }
 
 void command_hrm_read(void) {
-  s_tia_count = 0;
   sys_hrm_manager_unsubscribe(s_console_session);
   s_console_session = hrm_manager_subscribe_with_callback(
-      INSTALL_ID_INVALID, 1 /*update_interval_s*/, 0 /*expire_s*/, HRMFeature_LEDCurrent,
+      INSTALL_ID_INVALID, 1 /*update_interval_s*/, 0 /*expire_s*/, HRMFeature_BPM,
       prv_console_read_callback, NULL);
   prompt_command_continues_after_returning();
 }

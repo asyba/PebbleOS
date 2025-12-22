@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #define FILE_LOG_COLOR LOG_COLOR_BLUE
 
@@ -308,7 +295,7 @@ static void prv_reset_due_to_bt_error(void) {
 // Is Alive Logic
 
 #define ANCS_INVALID_PARAM 0xA2
-#define ANCS_IS_ALIVE_NEXT_CHECK_TIME_MINUTES 60 // 1 hour (60 minutes)
+#define ANCS_IS_ALIVE_NEXT_CHECK_TIME_MINUTES 15 // Check every 15 minutes for faster recovery
 #define ANCS_IS_ALIVE_RESPONSE_WAIT_TIME_SECONDS 5 // 5 seconds
 
 
@@ -348,6 +335,34 @@ static void prv_ancs_is_alive_start_tracking(void) {
   prv_ancs_is_alive_schedule_next_check();
 }
 
+static void prv_resubscribe_to_ancs(void) {
+  if (!s_ancs_client) {
+    return;
+  }
+
+  // Check if we have valid characteristic handles to re-subscribe to
+  if (s_ancs_client->characteristics[ANCSCharacteristicNotification] == BLE_CHARACTERISTIC_INVALID) {
+    PBL_LOG(LOG_LEVEL_WARNING, "Cannot resubscribe to ANCS: no valid characteristic handles");
+    return;
+  }
+
+  PBL_LOG(LOG_LEVEL_INFO, "Re-subscribing to ANCS characteristics");
+
+  // Re-subscribe to Data, then to Notification characteristics
+  // (same order as in ancs_handle_service_discovered)
+  for (int c = ANCSCharacteristicData; c >= ANCSCharacteristicNotification; --c) {
+    BLECharacteristic charx = s_ancs_client->characteristics[c];
+    if (charx != BLE_CHARACTERISTIC_INVALID) {
+      const BTErrno e = gatt_client_subscriptions_subscribe(charx,
+                                                            BLESubscriptionNotifications,
+                                                            GAPLEClientKernel);
+      if (e != BTErrnoOK) {
+        PBL_LOG(LOG_LEVEL_ERROR, "Failed to resubscribe to ANCS charx %d: %d", c, e);
+      }
+    }
+  }
+}
+
 static void prv_is_ancs_alive_response_timeout_launcher_task_cb(void *data) {
   if (!s_ancs_client) {
     return;
@@ -357,6 +372,11 @@ static void prv_is_ancs_alive_response_timeout_launcher_task_cb(void *data) {
 
   // Stop the wait for response timer
   prv_ancs_is_alive_stop_timer();
+
+  // Try to recover by re-subscribing to ANCS characteristics
+  // This handles the case where iOS has dropped the GATT subscription
+  // without the watch knowing about it (common during PPoGATT resets)
+  prv_resubscribe_to_ancs();
 }
 
 static void prv_is_ancs_alive_response_timeout(void *data) {

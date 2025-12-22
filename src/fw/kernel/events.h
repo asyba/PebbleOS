@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -635,18 +622,20 @@ typedef struct HRMHRVData { // 3 bytes
   HRMQuality quality:8;
 } HRMHRVData;
 
-typedef struct HRMLEDData { // 4 bytes
-  uint16_t current_ua;
-  uint16_t tia; //!< Transimpendance Amplifier value.
-                //!< This is used with thresholds (provided by AMS) to verify the part is
-                //!< functioning within specification.
+typedef struct HRMSpO2Data { // 2 bytes
+  uint8_t percent;
+  HRMQuality quality:8;
+} HRMSpO2Data;
 
-} HRMLEDData;
+#ifdef MANUFACTURING_FW
+typedef struct HRMCTRData { // 6 bytes
+  double ctr[6];
+} HRMCTRData;
 
-typedef struct HRMDiagnosticsData {
-  HRMPPGData ppg_data;
-  HRMAccelData accel_data;
-} HRMDiagnosticsData;
+typedef struct HRMLeakageData { // 6 bytes
+  double leakage[6];
+} HRMLeakageData;
+#endif
 
 typedef struct HRMSubscriptionExpiringData { // 4 bytes
   HRMSessionRef session_ref;
@@ -655,8 +644,11 @@ typedef struct HRMSubscriptionExpiringData { // 4 bytes
 typedef enum HRMEventType {
   HRMEvent_BPM = 0,
   HRMEvent_HRV,
-  HRMEvent_LEDCurrent,
-  HRMEvent_Diagnostics,
+  HRMEvent_SpO2,
+#ifdef MANUFACTURING_FW
+  HRMEvent_CTR,
+  HRMEvent_Leakage,
+#endif
   HRMEvent_SubscriptionExpiring
 } HRMEventType;
 
@@ -665,8 +657,11 @@ typedef struct PACKED PebbleHRMEvent { // 5 bytes
   union {
     HRMBPMData bpm;
     HRMHRVData hrv;
-    HRMLEDData led;
-    HRMDiagnosticsData *debug;
+    HRMSpO2Data spo2;
+#ifdef MANUFACTURING_FW
+    HRMCTRData* ctr;
+    HRMLeakageData* leakage;
+#endif
     HRMSubscriptionExpiringData expiring;
   };
 } PebbleHRMEvent;

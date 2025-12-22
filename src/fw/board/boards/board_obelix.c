@@ -1,18 +1,5 @@
-/*
- * Copyright 2025 Core Devices LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2025 Core Devices LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "bf0_hal.h"
 #include "bf0_hal_efuse.h"
@@ -23,10 +10,9 @@
 #include "board/board.h"
 #include "board/splash.h"
 #include "drivers/sf32lb52/debounced_button_definitions.h"
-#include "drivers/stubs/hrm.h"
+#include "drivers/hrm/gh3x2x/gh3x2x.h"
 #include "drivers/watchdog.h"
 #include "system/passert.h"
-#include "kernel/util/stop.h"
 
 
 #define HCPU_FREQ_MHZ 240
@@ -118,38 +104,6 @@ static PwmState s_pwm1_ch3_state = {
     .channel = 3,
 };
 
-#if !BOARD_OBELIX_DVT && !BOARD_OBELIX_PVT && !BOARD_OBELIX_BB2
-const LedControllerPwm LED_CONTROLLER_PWM = {
-    .pwm = {
-        [0] = {
-            .pwm_pin = {
-                .pad = PAD_PA28,
-                .func = GPTIM1_CH1,
-                .flags = PIN_NOPULL,
-            },
-            .state = &s_pwm1_ch1_state,
-        },
-        [1] = {
-            .pwm_pin = {
-                .pad = PAD_PA29,
-                .func = GPTIM1_CH2,
-                .flags = PIN_NOPULL,
-            },
-            .state = &s_pwm1_ch2_state,
-        },
-        [2] = {
-            .pwm_pin = {
-                .pad = PAD_PA44,
-                .func = GPTIM1_CH3,
-                .flags = PIN_NOPULL,
-            },
-            .state = &s_pwm1_ch3_state,
-        },
-    },
-    .initial_color = LED_WARM_WHITE,
-};
-#endif
-
 static DisplayJDIState s_display_state = {
     .hlcdc = {
         .Instance = LCDC1,
@@ -236,10 +190,8 @@ static DisplayJDIDevice s_display = {
             .flags = PIN_NOPULL,
         },
     },
-#if BOARD_OBELIX_DVT || BOARD_OBELIX_PVT || BOARD_OBELIX_BB2
     .vddp = {hwp_gpio1, 28, true},
     .vlcd = {hwp_gpio1, 29, true},
-#endif
     .splash = {
         .data = splash_bits,
         .width = splash_width,
@@ -412,7 +364,6 @@ I2CBus *const I2C2_BUS = &s_i2c_bus_2;
 
 IRQ_MAP(I2C2, i2c_irq_handler, I2C2_BUS);
 
-#ifdef IMU_USE_LIS2DW12
 static const I2CSlavePort s_i2c_lsm2dw12 = {
     .bus = &s_i2c_bus_2,
 #if BOARD_OBELIX_DVT || BOARD_OBELIX_BB2
@@ -423,14 +374,6 @@ static const I2CSlavePort s_i2c_lsm2dw12 = {
 };
 
 I2CSlavePort *const I2C_LSM2DW12 = &s_i2c_lsm2dw12;
-#else
-static const I2CSlavePort s_i2c_lsm6d = {
-    .bus = &s_i2c_bus_2,
-    .address = 0x6A,
-};
-
-I2CSlavePort *const I2C_LSM6D = &s_i2c_lsm6d;
-#endif
 
 static const I2CSlavePort s_i2c_mmc5603nj = {
     .bus = &s_i2c_bus_2,
@@ -505,10 +448,64 @@ static const TouchSensor touch_cst816 = {
 
 const TouchSensor *CST816 = &touch_cst816;
 
-static HRMDeviceState s_hrm_state;
+static I2CBusHalState s_i2c_bus_hal_state_4 = {
+    .hdl = {
+        .Instance = I2C4,
+        .Init = {
+            .AddressingMode = I2C_ADDRESSINGMODE_7BIT,
+            .ClockSpeed = 400000,
+            .GeneralCallMode = I2C_GENERALCALL_DISABLE,
+        },
+        .Mode = HAL_I2C_MODE_MASTER,
+        .core = CORE_ID_HCPU,
+    },
+};
 
+static I2CBusHal s_i2c_bus_hal_4 = {
+    .state = &s_i2c_bus_hal_state_4,
+    .scl =
+        {
+            .pad = PAD_PA09,
+            .func = I2C4_SCL,
+            .flags = PIN_NOPULL,
+        },
+    .sda =
+        {
+            .pad = PAD_PA20,
+            .func = I2C4_SDA,
+            .flags = PIN_NOPULL,
+        },
+    .module = RCC_MOD_I2C4,
+    .irqn = I2C4_IRQn,
+    .irq_priority = 5,
+};
+
+static I2CBusState s_i2c_bus_state_4;
+
+static I2CBus s_i2c_bus_4 = {
+    .hal = &s_i2c_bus_hal_4,
+    .state = &s_i2c_bus_state_4,
+    .name = "i2c4",
+    .stop_mode_inhibitor = InhibitorI2C4,
+};
+
+I2CBus *const I2C4_BUS = &s_i2c_bus_4;
+
+IRQ_MAP(I2C4, i2c_irq_handler, I2C4_BUS);
+
+static const I2CSlavePort s_i2c_gh3x2x = {
+    .bus = &s_i2c_bus_4,
+    .address = 0x14,
+};
+
+static HRMDeviceState s_hrm_state;
 static HRMDevice s_hrm = {
-  .state = &s_hrm_state,
+    .state = &s_hrm_state,
+    .i2c = &s_i2c_gh3x2x,
+    .int_exti = {
+        .peripheral = hwp_gpio1,
+        .gpio_pin = 44,
+    },
 };
 
 HRMDevice * const HRM = &s_hrm;
@@ -545,7 +542,7 @@ const BoardConfigPower BOARD_CONFIG_POWER = {
 };
 
 const BoardConfig BOARD_CONFIG = {
-  .backlight_on_percent = 25,
+  .backlight_on_percent = 45,
   .ambient_light_dark_threshold = 150,
   .ambient_k_delta_threshold = 25,
   .dynamic_backlight_min_threshold = 15,
@@ -555,17 +552,9 @@ const BoardConfig BOARD_CONFIG = {
 const BoardConfigButton BOARD_CONFIG_BUTTON = {
   .buttons = {
     [BUTTON_ID_BACK]   = { "Back",   hwp_gpio1, 34, GPIO_PuPd_NOPULL, true },
-#if defined(IS_BIGBOARD) && !BOARD_OBELIX_BB2
-    [BUTTON_ID_UP]     = { "Up",     hwp_gpio1, 37, GPIO_PuPd_UP, false},
-#else
     [BUTTON_ID_UP]     = { "Up",     hwp_gpio1, 35, GPIO_PuPd_UP, false},
-#endif
     [BUTTON_ID_SELECT] = { "Select", hwp_gpio1, 36, GPIO_PuPd_UP, false},
-#if defined(IS_BIGBOARD) && !BOARD_OBELIX_BB2
-    [BUTTON_ID_DOWN]   = { "Down",   hwp_gpio1, 35, GPIO_PuPd_UP, false},
-#else
     [BUTTON_ID_DOWN]   = { "Down",   hwp_gpio1, 37, GPIO_PuPd_UP, false},
-#endif
   },
   .timer = GPTIM2,
   .timer_irqn = GPTIM2_IRQn,
@@ -702,15 +691,7 @@ void board_init(void) {
   i2c_init(I2C1_BUS);
   i2c_init(I2C2_BUS);
   i2c_init(I2C3_BUS);
+  i2c_init(I2C4_BUS);
 
   mic_init(MIC);
-
-  /* Enable user buttons as AON wakeup source */
-  HAL_HPAON_EnableWakeupSrc(HPAON_WAKEUP_SRC_PIN10, AON_PIN_MODE_HIGH);
-  HAL_HPAON_EnableWakeupSrc(HPAON_WAKEUP_SRC_PIN11, AON_PIN_MODE_LOW);
-  HAL_HPAON_EnableWakeupSrc(HPAON_WAKEUP_SRC_PIN12, AON_PIN_MODE_LOW);
-  HAL_HPAON_EnableWakeupSrc(HPAON_WAKEUP_SRC_PIN13, AON_PIN_MODE_LOW);
-
-  // Temporarily disable stop mode (GH-452)
-  stop_mode_disable(InhibitorMain);
 }

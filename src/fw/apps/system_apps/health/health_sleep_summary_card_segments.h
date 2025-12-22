@@ -1,21 +1,9 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
+#include "board/display.h"
 #include "health_progress.h"
 
 //! 5 main segments + 4 real corners
@@ -26,8 +14,10 @@
 // Found through trial and error
 #define DEFAULT_MARK_WIDTH 40
 
-#define X_SHIFT (PBL_IF_ROUND_ELSE(23, PBL_IF_BW_ELSE(1, 0)))
-#define Y_SHIFT (PBL_IF_ROUND_ELSE(8, PBL_IF_BW_ELSE(3, 0)))
+// Dynamically center based on display size vs legacy 144x168 base
+// Round displays need additional adjustment for the bezel
+#define X_SHIFT (((DISP_COLS - LEGACY_2X_DISP_COLS) / 2) + PBL_IF_ROUND_ELSE(23, PBL_IF_BW_ELSE(1, 0)))
+#define Y_SHIFT (((DISP_ROWS - LEGACY_2X_DISP_ROWS) / 2) + PBL_IF_ROUND_ELSE(8, PBL_IF_BW_ELSE(3, 0)))
 
 // Used to shrink the thinkness of the bars
 #define X_SHRINK (PBL_IF_BW_ELSE(2, 0))

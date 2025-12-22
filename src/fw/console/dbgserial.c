@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "dbgserial.h"
 
@@ -30,9 +17,12 @@
 #endif
 
 
-#if !defined(RELEASE) || defined(TARGET_QEMU) || defined(MANUFACTURING_FW)
 void dbgserial_init(void) {
+#if !defined(RELEASE) || defined(TARGET_QEMU) || defined(MANUFACTURING_FW)
   uart_init(DBG_UART);
+#else
+  uart_init_tx_only(DBG_UART);
+#endif
   dbgserial_restore_baud_rate();
 }
 
@@ -74,28 +64,3 @@ void dbgserial_putstr_fmt(char* buffer, unsigned int buffer_size, const char* fm
 
   dbgserial_putstr(buffer);
 }
-#else
-void dbgserial_init(void) {
-}
-
-void dbgserial_change_baud_rate(uint32_t new_baud) {
-}
-
-void dbgserial_restore_baud_rate(void) {
-}
-
-void dbgserial_putstr(const char* str) {
-}
-
-void dbgserial_putchar(uint8_t c) {
-}
-
-void dbgserial_putchar_lazy(uint8_t c) {
-}
-
-void dbgserial_flush(void) {
-}
-
-void dbgserial_putstr_fmt(char* buffer, unsigned int buffer_size, const char* fmt, ...) {
-}
-#endif

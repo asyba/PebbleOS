@@ -52,10 +52,8 @@ RUNNERS = {
     'robert_evt': ['openocd'],
     'robert_es': ['openocd'],
     'asterix': ['openocd', 'nrfutil'],
-    'obelix_evt': ['sftool'],
     'obelix_dvt': ['sftool'],
     'obelix_pvt': ['sftool'],
-    'obelix_bb': ['sftool'],
     'obelix_bb2': ['sftool'],
 }
 
@@ -118,10 +116,8 @@ def options(opt):
                              'robert_evt',
                              'robert_es',
                              'asterix',
-                             'obelix_evt',
                              'obelix_dvt',
                              'obelix_pvt',
-                             'obelix_bb',
                              'obelix_bb2',
                             ],
                    help='Which board we are targeting '
@@ -382,7 +378,7 @@ def handle_configure_options(conf):
         conf.env.append_value('DEFINES', 'BOOTLOADER_TEST_STAGE1=0')
         conf.env.append_value('DEFINES', 'BOOTLOADER_TEST_STAGE2=0')
 
-    if not conf.options.no_pulse_everywhere:
+    if not conf.options.no_pulse_everywhere and (not conf.options.release or conf.options.mfg):
         conf.env.append_value('DEFINES', 'PULSE_EVERYWHERE=1')
 
 def _create_cm0_env(conf):
@@ -829,9 +825,6 @@ def build(bld):
     bld.recurse('src/libutil')
     bld.recurse('src/fw')
 
-    if sys.platform != 'darwin':
-        bld.recurse('tools/qemu_spi_cooker')
-
     # Generate resources. Leave this until the end so we collect all the env['DYNAMIC_RESOURCES']
     # values that the other build steps added.
     bld.recurse('resources')
@@ -1230,13 +1223,6 @@ def qemu_image_spi(ctx):
         tail_padding_size = image_size - resources_begin - len(res_img)
         qemu_spi_img_file.write(bytes([0xff]) * tail_padding_size)
 
-        # qemu_spi_cooker is broken on OSX but it doesn't really matter
-        # it's only there to speed up first boot, an empty image will do
-        if sys.platform != 'darwin':
-            with open(os.devnull, 'w') as null:
-                qemu_spi_cooker_node = ctx.path.get_bld().make_node('qemu_spi_cooker')
-                qemu_spi_cooker_path = qemu_spi_cooker_node.path_from(ctx.path)
-                subprocess.check_call([qemu_spi_cooker_path, spi_flash_path], stdout=null)
 
 def mfg_image_spi(ctx):
     """Creates a SPI flash image of PRF for MFG pre-burn. Includes a

@@ -1,17 +1,6 @@
 #!/usr/bin/env python
-# Copyright 2024 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: 2024 Google LLC
+# SPDX-License-Identifier: Apache-2.0
 
 
 import argparse
@@ -250,7 +239,7 @@ class ResourcePack(object):
             print('  %u: Offset %u Length %u CRC 0x%x' % (i, entry.offset, entry.length, entry.crc))
 
     def __init__(self, is_system):
-        self.table_size = 512 if is_system else 256
+        self.table_size = 768 if is_system else 256
         self.content_start = self.MANIFEST_SIZE_BYTES + self.table_size * self.TABLE_ENTRY_SIZE_BYTES
 
         # Note that we never actually set the timestamp in newly generated pbpacks. The timestamp

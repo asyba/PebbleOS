@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #pragma once
 
@@ -56,7 +43,7 @@ typedef struct HRMSubscriberState {
   bool sent_expiration_event; // true after we've sent a HRMEvent_SubscriptionExpiring event
   HRMFeature features;        // what features the subscriber is interested in
 
-  RtcTicks last_valid_ticks; // tick count the last time this subscriber received valid HR reading
+  RtcTicks last_valid_bpm_ticks; // tick count the last time this subscriber received valid HR reading
 } HRMSubscriberState;
 
 // HRM manager expects to be update at 1Hz. To the system task, we can currently
@@ -97,10 +84,10 @@ struct HRMManagerState {
   bool enabled_charging_state;     // Ture if we aren't plugged in / charging
 
   // These variables used to keep track of the sensor reading validity.
-  bool sensor_stable;   // True after we receive the first good reading after power-on or off-wrist
+  bool sensor_bpm_stable;   // True after we receive the first good BPM reading after power-on or off-wrist
   bool off_wrist_when_stable;   // true if sensor said off-wrist when first stablized
-  RtcTicks sensor_start_ticks;  // tick count last time sensor was powered on, or last
-                                // off-wrist. 0 if still off-wrist or off.
+  RtcTicks sensor_bpm_start_ticks;  // tick count last time sensor was powered on, or last
+                                    // off-wrist. 0 if still off-wrist or off.
 };
 
 //! Subscription for KernelBG or KernelMain clients.

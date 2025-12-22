@@ -1,16 +1,5 @@
-# Copyright 2024 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: 2024 Google LLC
+# SPDX-License-Identifier: Apache-2.0
 
 '''
 SVG2COMMANDS creates Pebble Draw Commands (the Python Objects, _not_ a serialized .pdc) from SVG file(s).
@@ -28,6 +17,11 @@ from . import pebble_commands
 
 xmlns = '{http://www.w3.org/2000/svg}'
 
+# The most used color names
+WEB_COLORS = {
+    'black': '000000',
+    'white': 'ffffff'
+}
 
 def get_viewbox(root):
     try:
@@ -55,10 +49,16 @@ def get_translate(group):
 
 
 def parse_color(color, opacity, truncate):
-    if color is None or color[0] != '#':
+    if not color is None and color[0] == '#':
+        hex_color = color[1:7]
+        if len(hex_color) != 6:
+            hex_color = ''.join([hex_color[0], hex_color[0], hex_color[1], hex_color[1], hex_color[2], hex_color[2]])
+    elif not color is None and color.lower() in WEB_COLORS:
+        hex_color = WEB_COLORS[color]
+    else:
         return 0
 
-    rgb = int(color[1:7], 16)
+    rgb = int(hex_color, 16)
     r, g, b = (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF
     a = int(opacity * 255)
 
@@ -80,10 +80,14 @@ def calc_opacity(a1, a2):
 
 def get_points_from_str(point_str):
     points = []
-    for p in point_str.split():
-        pair = p.split(',')
+    # Normalize the point string: replace commas with spaces, then split on whitespace
+    # This handles both "x,y x,y" and "x y x y" formats
+    normalized = point_str.replace(',', ' ')
+    values = normalized.split()
+    # Process values in pairs
+    for i in range(0, len(values) - 1, 2):
         try:
-            points.append((float(pair[0]), float(pair[1])))
+            points.append((float(values[i]), float(values[i + 1])))
         except (ValueError, TypeError):
             return None
     return points
@@ -190,17 +194,20 @@ svg_element_parser = {'path': parse_path,
 
 
 def create_command(translate, element, verbose=False, precise=False, raise_error=False,
-                   truncate_color=True):
+                   truncate_color=True, inherited_values=None):
+    if inherited_values is None:
+        inherited_values = {}
+    values = overwrite_inherited(element, inherited_values)
     try:
-        stroke_width = int(element.get('stroke-width'))
+        stroke_width = int(values.get('stroke-width'))
     except TypeError:
         stroke_width = 1
     except ValueError:
         stroke_width = 0
 
-    stroke_color = parse_color(element.get('stroke'), calc_opacity(element.get('stroke-opacity'),
-                                                                   element.get('opacity')), truncate_color)
-    fill_color = parse_color(element.get('fill'), calc_opacity(element.get('fill-opacity'), element.get('opacity')),
+    stroke_color = parse_color(values.get('stroke'), calc_opacity(values.get('stroke-opacity'),
+                                                                  values.get('opacity')), truncate_color)
+    fill_color = parse_color(values.get('fill'), calc_opacity(values.get('fill-opacity'), values.get('opacity')),
                              truncate_color)
 
     if stroke_color == 0 and fill_color == 0:
@@ -226,8 +233,21 @@ def create_command(translate, element, verbose=False, precise=False, raise_error
     return None
 
 
+def overwrite_inherited(element, inherited_values):
+    for attr in ['stroke', 'stroke-width', 'stroke-opacity', 'fill', 'fill-opacity', 'opacity']:
+        if not element.get(attr) is None:
+            if attr == 'opacity' and attr in inherited_values:
+                # Opacity compounds - convert to floats before multiplying
+                inherited_values[attr] = float(inherited_values[attr]) * float(element.get(attr))
+            else:
+                inherited_values[attr] = element.get(attr)
+    return inherited_values
+
+
 def get_commands(translate, group, verbose=False, precise=False, raise_error=False,
-                 truncate_color=True):
+                 truncate_color=True, inherited_values=None):
+    if inherited_values is None:
+        inherited_values = {}
     commands = []
     error = False
     for child in list(group):
@@ -243,14 +263,15 @@ def get_commands(translate, group, verbose=False, precise=False, raise_error=Fal
         # traverse tree of nested layers or groups
         if tag == 'layer' or tag == 'g':
             translate += get_translate(child)
+            inherited_values = overwrite_inherited(child, inherited_values)
             cmd_list, err = get_commands(translate, child, verbose, precise, raise_error,
-                                         truncate_color)
+                                         truncate_color, inherited_values)
             commands += cmd_list
             if err:
                 error = True
         else:
             try:
-                c = create_command(translate, child, verbose, precise, raise_error, truncate_color)
+                c = create_command(translate, child, verbose, precise, raise_error, truncate_color, inherited_values)
                 if c is not None:
                     commands.append(c)
             except pebble_commands.InvalidPointException:

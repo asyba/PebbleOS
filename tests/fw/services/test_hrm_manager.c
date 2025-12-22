@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "clar.h"
 
@@ -395,10 +382,6 @@ void test_hrm_manager__different_feature_callbacks(void) {
   AppInstallId  app_id = 1;
   const uint16_t expire_s = SECONDS_PER_MINUTE;
   HRMSessionRef bpm_session = sys_hrm_manager_app_subscribe(app_id, 1, expire_s, HRMFeature_BPM);
-  HRMSessionRef led_session = sys_hrm_manager_app_subscribe(app_id + 1, 1, expire_s,
-                                                            HRMFeature_LEDCurrent);
-  HRMSessionRef all_session = sys_hrm_manager_app_subscribe(app_id + 2, 1, expire_s,
-                                                            HRMFeature_BPM|HRMFeature_LEDCurrent);
   HRMSessionRef no_session = sys_hrm_manager_app_subscribe(app_id + 3, 1, expire_s,
                                                             0 /* no features */);
 
@@ -422,7 +405,7 @@ void test_hrm_manager__multiple_feature_callbacks(void) {
   for (int i = 0; i < num_refs; ++i, app_id++) {
     session_refs[i] = TO_SESSION_REF(i+1);
     const uint16_t expire_s = SECONDS_PER_MINUTE;
-    sys_hrm_manager_app_subscribe(app_id, 1, expire_s, HRMFeature_BPM|HRMFeature_LEDCurrent);
+    sys_hrm_manager_app_subscribe(app_id, 1, expire_s, HRMFeature_BPM);
   }
 
   prv_fake_send_new_data();
@@ -511,13 +494,13 @@ void test_hrm_manager__set_features(void) {
   // Starts off with BPM enabled
   cl_assert_equal_i(state->features, HRMFeature_BPM);
 
-  // Change to only LED Current
-  sys_hrm_manager_set_features(session_ref, HRMFeature_LEDCurrent);
-  cl_assert_equal_i(state->features, HRMFeature_LEDCurrent);
+  // Change to none
+  sys_hrm_manager_set_features(session_ref, 0);
+  cl_assert_equal_i(state->features, 0);
 
-  // Change to LEDCurrent + BPM
-  sys_hrm_manager_set_features(session_ref, HRMFeature_LEDCurrent | HRMFeature_BPM);
-  cl_assert_equal_i(state->features, HRMFeature_LEDCurrent | HRMFeature_BPM);
+  // Change to BPM
+  sys_hrm_manager_set_features(session_ref, HRMFeature_BPM);
+  cl_assert_equal_i(state->features, HRMFeature_BPM);
 }
 
 void test_hrm_manager__set_update_internal(void) {
@@ -540,7 +523,7 @@ void test_hrm_manager__set_update_internal(void) {
   cl_assert(state->expire_utc == rtc_get_time() + expire_b_s);
 }
 
-#define NUM_TEST_EVENTS 2
+#define NUM_TEST_EVENTS 1
 void test_hrm_manager__circular_buffer_event_copy(void) {
   // Make sure there will be unaligned data
   const uint16_t buf_size = sizeof(PebbleHRMEvent) * 2 + sizeof(PebbleHRMEvent) / 2;
@@ -551,7 +534,6 @@ void test_hrm_manager__circular_buffer_event_copy(void) {
 
   PebbleHRMEvent event[NUM_TEST_EVENTS] = {
     { .event_type = HRMEvent_BPM, .bpm = { .bpm = 65, .quality = 5 } },
-    { .event_type = HRMEvent_LEDCurrent, .led = { .current_ua = 243 } },
   };
   { // These events will insert properly aligned in the buffer
     for (int i = 0; i < NUM_TEST_EVENTS; ++i) {

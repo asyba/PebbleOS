@@ -1,18 +1,5 @@
-/*
- * Copyright 2024 Google LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-FileCopyrightText: 2024 Google LLC */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 #include "timeline_actions.h"
 
@@ -129,6 +116,8 @@ static void prv_cleanup_voice_data(VoiceResponseData *data) {
 #if CAPABILITY_HAS_MICROPHONE
   voice_window_destroy(data->voice_window);
 #endif
+  // Free the copied TimelineItem that was created in prv_start_voice_reply()
+  timeline_item_destroy(data->context);
   applib_free(data);
 }
 
@@ -884,10 +873,15 @@ static void prv_start_voice_reply(ActionMenu *action_menu,
   TimelineActionMenu *timeline_action_menu = context;
   action_menu_freeze(action_menu);
 
+  // Make a copy of the TimelineItem to avoid use-after-free if the notification window's
+  // swap layer is reloaded while the voice window is active
+  TimelineItem *item_copy = timeline_item_copy(timeline_action_menu->item);
+  PBL_ASSERTN(item_copy);
+
   VoiceResponseData *data = applib_malloc(sizeof(VoiceResponseData));
   *data = (VoiceResponseData) {
     .action_data = item->action_data,
-    .context = timeline_action_menu->item,
+    .context = item_copy,
     .action_menu = action_menu,
     .voice_window = voice_window_create(NULL, 0, VoiceEndpointSessionTypeDictation),
   };
