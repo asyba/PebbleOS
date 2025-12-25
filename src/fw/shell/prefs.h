@@ -155,3 +155,6 @@ void shell_prefs_set_music_show_volume_controls(bool enabled);
 
 bool shell_prefs_get_music_show_progress_bar(void);
 void shell_prefs_set_music_show_progress_bar(bool enabled);
+
+bool shell_prefs_get_music_show_shuffle_repeat(void);
+void shell_prefs_set_music_show_shuffle_repeat(bool enabled);

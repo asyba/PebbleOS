@@ -221,12 +221,14 @@ static uint8_t s_legacy_app_render_mode = 1; // Default to scaled mode
 #define PREF_KEY_APPS_MENU_HIGHLIGHT_COLOR "appsMenuHighlightColor"
 #define PREF_KEY_MUSIC_SHOW_VOLUME_CONTROLS "musicShowVolumeControls"
 #define PREF_KEY_MUSIC_SHOW_PROGRESS_BAR "musicShowProgressBar"
+#define PREF_KEY_MUSIC_SHOW_SHUFFLE_REPEAT "musicShowShuffleRepeat"
 
 
 static GColor s_settings_menu_highlight_color = GColorCobaltBlue;
 static GColor s_apps_menu_highlight_color = GColorVividCerulean;
 static bool s_music_show_volume_controls = true;
 static bool s_music_show_progress_bar = true;
+static bool s_music_show_shuffle_repeat = false;  // Default to Hide
 
 
 // ============================================================================================
@@ -614,6 +616,11 @@ static bool prv_set_s_music_show_volume_controls(bool *enabled) {
 
 static bool prv_set_s_music_show_progress_bar(bool *enabled) {
   s_music_show_progress_bar = *enabled;
+  return true;
+}
+
+static bool prv_set_s_music_show_shuffle_repeat(bool *enabled) {
+  s_music_show_shuffle_repeat = *enabled;
   return true;
 }
   
@@ -1596,4 +1603,12 @@ bool shell_prefs_get_music_show_progress_bar(void) {
 
 void shell_prefs_set_music_show_progress_bar(bool enabled) {
   prv_pref_set(PREF_KEY_MUSIC_SHOW_PROGRESS_BAR, &enabled, sizeof(enabled));
+}
+
+bool shell_prefs_get_music_show_shuffle_repeat(void) {
+  return s_music_show_shuffle_repeat;
+}
+
+void shell_prefs_set_music_show_shuffle_repeat(bool enabled) {
+  prv_pref_set(PREF_KEY_MUSIC_SHOW_SHUFFLE_REPEAT, &enabled, sizeof(enabled));
 }

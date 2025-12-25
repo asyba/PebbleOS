@@ -58,6 +58,12 @@ struct MusicServiceContext {
 
   //! The current playback state
   MusicPlayState playback_state;
+
+  //! The current shuffle mode
+  MusicShuffleMode shuffle_mode;
+
+  //! The current repeat mode
+  MusicRepeatMode repeat_mode;
 } s_music_ctx;
 
 void music_init(void) {
@@ -125,6 +131,8 @@ bool music_set_connected_server(const MusicServerImplementation *implementation,
       .elapsed_time_ms = 0,
     };
     music_update_player_playback_state(&state);
+    s_music_ctx.shuffle_mode = MusicShuffleModeUnknown;
+    s_music_ctx.repeat_mode = MusicRepeatModeUnknown;
 
     PebbleEvent event = {
       .type = PEBBLE_MEDIA_EVENT,
@@ -339,6 +347,18 @@ void music_update_player_volume_percent(uint8_t volume_percent) {
   event_put(&event);
 }
 
+void music_update_shuffle_mode(uint8_t shuffle_mode) {
+  mutex_lock_recursive(s_music_ctx.mutex);
+  s_music_ctx.shuffle_mode = (MusicShuffleMode)shuffle_mode;
+  mutex_unlock_recursive(s_music_ctx.mutex);
+}
+
+void music_update_repeat_mode(uint8_t repeat_mode) {
+  mutex_lock_recursive(s_music_ctx.mutex);
+  s_music_ctx.repeat_mode = (MusicRepeatMode)repeat_mode;
+  mutex_unlock_recursive(s_music_ctx.mutex);
+}
+
 MusicPlayState music_get_playback_state(void) {
   if (!music_is_playback_state_reporting_supported()) {
     return MusicPlayStateUnknown;
@@ -433,6 +453,20 @@ bool music_is_progress_reporting_supported(void) {
 
 bool music_is_volume_reporting_supported(void) {
   return prv_is_capability_supported(MusicServerCapabilityVolumeReporting);
+}
+
+MusicShuffleMode music_get_shuffle_mode(void) {
+  mutex_lock_recursive(s_music_ctx.mutex);
+  MusicShuffleMode mode = s_music_ctx.shuffle_mode;
+  mutex_unlock_recursive(s_music_ctx.mutex);
+  return mode;
+}
+
+MusicRepeatMode music_get_repeat_mode(void) {
+  mutex_lock_recursive(s_music_ctx.mutex);
+  MusicRepeatMode mode = s_music_ctx.repeat_mode;
+  mutex_unlock_recursive(s_music_ctx.mutex);
+  return mode;
 }
 
 void command_print_now_playing(void) {

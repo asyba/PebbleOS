@@ -371,6 +371,26 @@
     },
     {
       "type": "png",
+      "name": "MUSIC_ICON_SHUFFLE",
+      "file": "normal/base/images/music_icon_shuffle.png"
+    },
+    {
+      "type": "png",
+      "name": "MUSIC_ICON_REPEAT",
+      "file": "normal/base/images/music_icon_repeat.png"
+    },
+    {
+      "type": "png",
+      "name": "MUSIC_ICON_SHUFFLE_ACTIVE",
+      "file": "normal/base/images/music_icon_shuffle_active.png"
+    },
+    {
+      "type": "png",
+      "name": "MUSIC_ICON_REPEAT_ACTIVE",
+      "file": "normal/base/images/music_icon_repeat_active.png"
+    },
+    {
+      "type": "png",
       "name": "MUSIC_LARGE_CASSETTE",
       "file": "normal/base/images/music_small_cassette.png"
     },

@@ -19,6 +19,19 @@ typedef enum {
 } MusicPlayState;
 
 typedef enum {
+  MusicShuffleModeUnknown = 0,
+  MusicShuffleModeOff = 1,
+  MusicShuffleModeOn = 2,
+} MusicShuffleMode;
+
+typedef enum {
+  MusicRepeatModeUnknown = 0,
+  MusicRepeatModeOff = 1,
+  MusicRepeatModeOne = 2,
+  MusicRepeatModeAll = 3,
+} MusicRepeatMode;
+
+typedef enum {
   MusicCommandPlay,
   MusicCommandPause,
   MusicCommandTogglePlayPause,
@@ -96,6 +109,12 @@ void music_request_reduced_latency(bool reduced_latency);
 
 //! Puts the underlying connection in a low latency mode, for the best responsiveness.
 void music_request_low_latency_for_period(uint32_t period_seconds);
+
+//! @return The current shuffle mode.
+MusicShuffleMode music_get_shuffle_mode(void);
+
+//! @return The current repeat mode.
+MusicRepeatMode music_get_repeat_mode(void);
 
 //! For testing purposes.
 const char * music_get_connected_server_debug_name(void);

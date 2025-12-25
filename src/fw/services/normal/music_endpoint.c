@@ -124,9 +124,9 @@ static void prv_update_play_state_info(CommSession *session, const uint8_t* msg,
   player_state_update.playback_rate_percent = play_state_info->play_rate;
   s_progress_reporting_supported = (play_state_info->track_pos_ms >= 0);
   player_state_update.elapsed_time_ms = MAX(play_state_info->track_pos_ms, 0);
-  // TODO: Do something with this info
-  // play_state_info->play_shuffle_mode;
-  // play_state_info->play_repeat_mode;
+  
+  music_update_shuffle_mode(play_state_info->play_shuffle_mode);
+  music_update_repeat_mode(play_state_info->play_repeat_mode);
 
   music_update_player_playback_state(&player_state_update);
 }

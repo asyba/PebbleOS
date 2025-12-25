@@ -37,6 +37,7 @@ typedef struct {
 enum MusicItem {
   MusicItemShowVolumeControls,
   MusicItemShowProgressBar,
+  MusicItemShowShuffleRepeat,
   MusicItem_Count,
 };
 
@@ -62,6 +63,17 @@ static void prv_toggle_show_progress_bar(void) {
   shell_prefs_set_music_show_progress_bar(!prv_get_show_progress_bar());
 }
 
+// Show Shuffle/Repeat Modes
+//////////////////////////
+
+static bool prv_get_show_shuffle_repeat(void) {
+  return shell_prefs_get_music_show_shuffle_repeat();
+}
+
+static void prv_toggle_show_shuffle_repeat(void) {
+  shell_prefs_set_music_show_shuffle_repeat(!prv_get_show_shuffle_repeat());
+}
+
 // Menu Layer Callbacks
 ////////////////////////
 
@@ -84,6 +96,10 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       title = i18n_noop("Progress Bar");
       subtitle = prv_get_show_progress_bar() ? i18n_noop("Show") : i18n_noop("Hide");
       break;
+    case MusicItemShowShuffleRepeat:
+      title = i18n_noop("Shuffle/Repeat");
+      subtitle = prv_get_show_shuffle_repeat() ? i18n_noop("Show") : i18n_noop("Hide");
+      break;
     default:
       WTF;
   }
@@ -104,6 +120,9 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       break;
     case MusicItemShowProgressBar:
       prv_toggle_show_progress_bar();
+      break;
+    case MusicItemShowShuffleRepeat:
+      prv_toggle_show_shuffle_repeat();
       break;
     default:
       WTF;
