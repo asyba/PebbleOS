@@ -28,10 +28,12 @@
 #define STATUS_STRING_LEN 128
 #define TEST_DURATION_SEC 10
 
+#if CAPABILITY_HAS_SPEAKER
 static const int16_t sine_wave_4k[] = {
   0, 32767, 0, -32768, 0, 32767, 0, -32768,
   0, 32767, 0, -32768, 0, 32767, 0, -32768,
 };
+#endif
 
 typedef enum {
   Duration_2Hours = 0,
@@ -43,12 +45,20 @@ typedef enum {
 typedef enum {
   TestState_Menu = 0,
   TestState_Accel,
+#if CAPABILITY_HAS_MAGNETOMETER
   TestState_Mag,
+#endif
+#if CAPABILITY_HAS_COLOR_BACKLIGHT
   TestState_BacklightWhite,
   TestState_BacklightRed,
   TestState_BacklightGreen,
   TestState_BacklightBlue,
+#else
+  TestState_Backlight,
+#endif
+#if CAPABILITY_HAS_SPEAKER
   TestState_Audio,
+#endif
   TestState_ALS,
   TestState_Vibe,
   NumTestStates
@@ -74,14 +84,19 @@ typedef struct {
 
   bool running;
   bool menu_active;
+#if CAPABILITY_HAS_SPEAKER
   bool audio_playing;
+#endif
+#if CAPABILITY_HAS_COLOR_BACKLIGHT
   uint32_t saved_backlight_color;
+#endif
 } AppData;
 
 static void prv_stop_test(void);
 static void prv_start_tests(TestDuration duration);
 static void prv_update_menu_display(AppData *data);
 
+#if CAPABILITY_HAS_SPEAKER
 // Audio transmission handler
 static void prv_audio_trans_handler(uint32_t *free_size) {
   uint32_t available_size = *free_size;
@@ -89,6 +104,7 @@ static void prv_audio_trans_handler(uint32_t *free_size) {
     available_size = audio_write(AUDIO, (void*)&sine_wave_4k[0], sizeof(sine_wave_4k));
   }
 }
+#endif
 
 // Helper to format time as HH:MM:SS
 static void prv_format_time(char *buffer, size_t size, uint32_t seconds) {
@@ -118,6 +134,7 @@ static void prv_test_accel(AppData *data) {
   text_layer_set_text(&data->status, data->status_string);
 }
 
+#if CAPABILITY_HAS_MAGNETOMETER
 static void prv_test_mag(AppData *data) {
   MagData mag_sample;
   MagReadStatus status = mag_read_data(&mag_sample);
@@ -136,7 +153,9 @@ static void prv_test_mag(AppData *data) {
   }
   text_layer_set_text(&data->status, data->status_string);
 }
+#endif
 
+#if CAPABILITY_HAS_COLOR_BACKLIGHT
 static void prv_test_backlight(AppData *data, const char *color_name, uint32_t color) {
   char time_str[16];
   prv_format_time(time_str, sizeof(time_str), data->total_elapsed_sec);
@@ -148,7 +167,19 @@ static void prv_test_backlight(AppData *data, const char *color_name, uint32_t c
             data->cycle_count, time_str, color_name);
   text_layer_set_text(&data->status, data->status_string);
 }
+#else
+static void prv_test_backlight(AppData *data) {
+  char time_str[16];
+  prv_format_time(time_str, sizeof(time_str), data->total_elapsed_sec);
 
+  sniprintf(data->status_string, sizeof(data->status_string),
+            "BACKLIGHT TEST\nCycle: %"PRIu32"\nTime: %s",
+            data->cycle_count, time_str);
+  text_layer_set_text(&data->status, data->status_string);
+}
+#endif
+
+#if CAPABILITY_HAS_SPEAKER
 static void prv_test_audio(AppData *data) {
   char time_str[16];
   prv_format_time(time_str, sizeof(time_str), data->total_elapsed_sec);
@@ -166,6 +197,7 @@ static void prv_test_audio(AppData *data) {
     data->audio_playing = true;
   }
 }
+#endif
 
 static void prv_test_als(AppData *data) {
   uint32_t level = ambient_light_get_light_level();
@@ -211,18 +243,28 @@ static void prv_advance_test(AppData *data) {
   if (data->duration != Duration_Unlimited &&
       data->total_elapsed_sec >= data->max_duration_sec) {
     // Clean up current test before showing finished
+#if CAPABILITY_HAS_MAGNETOMETER
     if (data->current_test == TestState_Mag) {
       mag_release();
     }
+#endif
+#if CAPABILITY_HAS_COLOR_BACKLIGHT
     if (data->current_test >= TestState_BacklightWhite &&
         data->current_test <= TestState_BacklightBlue) {
       led_controller_rgb_set_color(data->saved_backlight_color);
       light_enable(false);
     }
+#else
+    if (data->current_test == TestState_Backlight) {
+      light_enable(false);
+    }
+#endif
+#if CAPABILITY_HAS_SPEAKER
     if (data->audio_playing) {
       audio_stop(AUDIO);
       data->audio_playing = false;
     }
+#endif
 
     data->running = false;
 
@@ -232,15 +274,23 @@ static void prv_advance_test(AppData *data) {
   }
 
   // Start magnetometer if needed
+#if CAPABILITY_HAS_MAGNETOMETER
   if (data->current_test == TestState_Mag) {
     mag_start_sampling();
   }
+#endif
 
   // Enable backlight for backlight tests
+#if CAPABILITY_HAS_COLOR_BACKLIGHT
   if (data->current_test >= TestState_BacklightWhite &&
       data->current_test <= TestState_BacklightBlue) {
     light_enable(true);
   }
+#else
+  if (data->current_test == TestState_Backlight) {
+    light_enable(true);
+  }
+#endif
 }
 
 static void prv_update_display(AppData *data) {
@@ -261,9 +311,12 @@ static void prv_update_display(AppData *data) {
     case TestState_Accel:
       prv_test_accel(data);
       break;
+#if CAPABILITY_HAS_MAGNETOMETER
     case TestState_Mag:
       prv_test_mag(data);
       break;
+#endif
+#if CAPABILITY_HAS_COLOR_BACKLIGHT
     case TestState_BacklightWhite:
       prv_test_backlight(data, "WHITE", 0xD0D0D0);
       break;
@@ -276,9 +329,16 @@ static void prv_update_display(AppData *data) {
     case TestState_BacklightBlue:
       prv_test_backlight(data, "BLUE", 0x0000FF);
       break;
+#else
+    case TestState_Backlight:
+      prv_test_backlight(data);
+      break;
+#endif
+#if CAPABILITY_HAS_SPEAKER
     case TestState_Audio:
       prv_test_audio(data);
       break;
+#endif
     case TestState_ALS:
       prv_test_als(data);
       break;
@@ -306,18 +366,28 @@ static void prv_handle_second_tick(struct tm *tick_time, TimeUnits units_changed
   // Check if current test duration has elapsed
   if (data->test_elapsed_sec >= TEST_DURATION_SEC) {
     // Clean up current test
+#if CAPABILITY_HAS_MAGNETOMETER
     if (data->current_test == TestState_Mag) {
       mag_release();
     }
+#endif
+#if CAPABILITY_HAS_COLOR_BACKLIGHT
     if (data->current_test >= TestState_BacklightWhite &&
         data->current_test <= TestState_BacklightBlue) {
       led_controller_rgb_set_color(data->saved_backlight_color);
       light_enable(false);
     }
+#else
+    if (data->current_test == TestState_Backlight) {
+      light_enable(false);
+    }
+#endif
+#if CAPABILITY_HAS_SPEAKER
     if (data->current_test == TestState_Audio && data->audio_playing) {
       audio_stop(AUDIO);
       data->audio_playing = false;
     }
+#endif
 
     prv_advance_test(data);
     prv_update_display(data);
@@ -330,18 +400,28 @@ static void prv_stop_test(void) {
   data->running = false;
 
   // Clean up any active tests
+#if CAPABILITY_HAS_MAGNETOMETER
   if (data->current_test == TestState_Mag) {
     mag_release();
   }
+#endif
+#if CAPABILITY_HAS_COLOR_BACKLIGHT
   if (data->current_test >= TestState_BacklightWhite &&
       data->current_test <= TestState_BacklightBlue) {
     led_controller_rgb_set_color(data->saved_backlight_color);
     light_enable(false);
   }
+#else
+  if (data->current_test == TestState_Backlight) {
+    light_enable(false);
+  }
+#endif
+#if CAPABILITY_HAS_SPEAKER
   if (data->audio_playing) {
     audio_stop(AUDIO);
     data->audio_playing = false;
   }
+#endif
 
   tick_timer_service_unsubscribe();
 }
@@ -429,7 +509,9 @@ static void prv_start_tests(TestDuration duration) {
   data->total_elapsed_sec = 0;
   data->cycle_count = 1;
   data->running = true;
+#if CAPABILITY_HAS_COLOR_BACKLIGHT
   data->saved_backlight_color = led_controller_rgb_get_color();
+#endif
 
   switch (duration) {
     case Duration_2Hours:
@@ -467,7 +549,9 @@ static void prv_handle_init(void) {
   *data = (AppData) {
     .running = false,
     .menu_active = true,
+#if CAPABILITY_HAS_SPEAKER
     .audio_playing = false,
+#endif
     .selected_duration = Duration_2Hours,
   };
 

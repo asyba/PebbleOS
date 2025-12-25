@@ -178,6 +178,7 @@ static void gh3x2x_timer_stop_handle(void* arg) {
   if (HRM && HRM->state->timer) {
     app_timer_cancel(HRM->state->timer);
     HRM->state->timer = NULL;
+    HRM->state->timer_period_ms = 0;
   }
 }
 
@@ -291,10 +292,6 @@ void gh3x2x_rawdata_notify(uint32_t *p_rawdata, uint32_t data_count) {
 
 #ifdef MANUFACTURING_FW
 void gh3x2x_factory_test_enable(HRMDevice *dev, GH3x2xFTType test_type) {
-  if (!dev->state->initialized) {
-    return;
-  }
-  
   uint32_t mode = 0;
   if (test_type == HRM_FACTORY_TEST_CTR) {                    // CTR
     mode = GH3X2X_FUNCTION_TEST1;
@@ -349,10 +346,6 @@ void gh3x2x_start_ft_leakage(void) {
 }
 
 void gh3x2x_factory_test_disable(HRMDevice *dev) {
-  if (!dev->state->initialized) {
-    return;
-  }
-  
   dev->state->enabled = false;
   Gh3x2xDemoStopSampling(0xFFFFFFFF);
   if (dev->state->factory != NULL) {
@@ -403,7 +396,12 @@ bool gh3x2x_ble_data_recv(void* context) {
 // HRM interface
 
 void hrm_init(HRMDevice *dev) {
+}
+
+void hrm_enable(HRMDevice *dev) {
   int ret;
+
+  gh3026_reset_pin_ctrl(1);
 
   ret = Gh3x2xDemoInit();
   if (ret != 0) {
@@ -411,17 +409,7 @@ void hrm_init(HRMDevice *dev) {
     return;
   }
 
-  dev->state->initialized = true;
-  hrm_disable(dev);
-}
-
-void hrm_enable(HRMDevice *dev) {
-  if (!dev->state->initialized) {
-    return;
-  }
-
   s_hrm_int_flag = false;
-  dev->state->enabled = true;
 
   GH3X2X_FifoWatermarkThrConfig(GH3X2X_FIFO_WATERMARK_CONFIG);
   GH3X2X_SetSoftEvent(GH3X2X_SOFT_EVENT_NEED_FORCE_READ_FIFO);
@@ -431,14 +419,14 @@ void hrm_enable(HRMDevice *dev) {
 #else
   Gh3x2xDemoStartSampling(GH3X2X_FUNCTION_HR | GH3X2X_FUNCTION_SPO2);
 #endif
+
+  dev->state->enabled = true;
 }
 
 void hrm_disable(HRMDevice *dev) {
-  if (!dev->state->initialized) {
-    return;
-  }
-
   Gh3x2xDemoStopSampling(0xFFFFFFFF);
+  gh3026_reset_pin_ctrl(0);
+
   dev->state->enabled = false;
 }
 

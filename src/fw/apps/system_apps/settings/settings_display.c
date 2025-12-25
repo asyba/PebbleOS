@@ -37,8 +37,11 @@ typedef struct SettingsDisplayData {
 
 // Intensity Settings
 /////////////////////////////
-
+#if PLATFORM_OBELIX
+static const uint32_t s_intensity_values[] = { 15, 45, 70, 100 };
+#else
 static const uint32_t s_intensity_values[] = { 5, 25, 45, 70 };
+#endif
 
 static const char *s_intensity_labels[] = {
     i18n_noop("Low"),
@@ -163,7 +166,7 @@ static void prv_timeout_menu_push(SettingsDisplayData *data) {
 /////////////////////////////
 #if PLATFORM_OBELIX
 static const char *s_legacy_app_mode_labels[] = {
-    i18n_noop("Bezel"),
+    i18n_noop("Centered"),
     i18n_noop("Scaled")
 };
 

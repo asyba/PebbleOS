@@ -110,9 +110,11 @@ typedef enum {
   PmicRegisters_GPIOS_GPIOOPENDRAIN1 = 0x0615,
   PmicRegisters_ERRLOG_SCRATCH0 = 0x0E01,
   PmicRegisters_ERRLOG_SCRATCH1 = 0x0E02,
+  PmicRegisters_BUCK_BUCK1ENACLR = 0x0401,
   PmicRegisters_BUCK_BUCK1NORMVOUT = 0x0408,
   PmicRegisters_BUCK_BUCK2NORMVOUT = 0x040A,
   PmicRegisters_BUCK_BUCKSWCTRLSEL = 0x040F,
+  PmicRegisters_BUCK_BUCKSWCTRLSEL__BUCK1SWCTRLSEL_SWCTRL = 0x01,
   PmicRegisters_BUCK_BUCKSTATUS = 0x0434,
   PmicRegisters_LDSW_TASKLDSW1SET = 0x0800,
   PmicRegisters_LDSW_TASKLDSW1CLR = 0x0801,
@@ -267,6 +269,11 @@ bool pmic_init(void) {
 
 // FIXME(OBELIX): Needs to be configurable at board level
 #if PLATFORM_OBELIX
+  // Disable BUCK1 (1.8V)
+  ok &= prv_write_register(PmicRegisters_BUCK_BUCKSWCTRLSEL,
+                           PmicRegisters_BUCK_BUCKSWCTRLSEL__BUCK1SWCTRLSEL_SWCTRL);
+  ok &= prv_write_register(PmicRegisters_BUCK_BUCK1NORMVOUT, 8 /* 1.8V */);
+  ok &= prv_write_register(PmicRegisters_BUCK_BUCK1ENACLR, 1);
   //enable 1.8V@LDO1
   ok &= prv_write_register(PmicRegisters_LDSW_LDSW1LDOSEL, 1);  //LDO
   ok &= prv_write_register(PmicRegisters_LDSW_LDSW1VOUTSEL, 8);  //1.8V
@@ -315,7 +322,7 @@ bool pmic_init(void) {
   //3.3V @ LDO2
   ok &= prv_write_register(PmicRegisters_LDSW_LDSW2LDOSEL, PmicRegisters_LDSW_LDSW2LDOSEL__LDO_MODE);
   ok &= prv_write_register(PmicRegisters_LDSW_LDSW2VOUTSEL, PmicRegisters_LDSW_LDSW2VOUTSEL__3V3);
-  ok &= prv_write_register(PmicRegisters_LDSW_TASKLDSW2SET, 1);
+  ok &= prv_write_register(PmicRegisters_LDSW_TASKLDSW2CLR, 1);
 #endif
 
   val = (uint8_t)(NPM1300_CONFIG.chg_current_ma / 4U);
@@ -706,6 +713,15 @@ static bool gpio_set(Npm1300GpioId_t id, bool is_high) {
   return rv;
 }
 
+static bool ldo2_set_enabled(bool enabled) {
+  if (enabled) {
+    return prv_write_register(PmicRegisters_LDSW_TASKLDSW2SET, 1);
+  } else {
+    return prv_write_register(PmicRegisters_LDSW_TASKLDSW2CLR, 1);
+  }
+}
+
 Npm1300Ops_t NPM1300_OPS = {
   .gpio_set = gpio_set,
+  .ldo2_set_enabled = ldo2_set_enabled,
 };

@@ -8,6 +8,7 @@
 #include "bf0_hal_pmu.h"
 #include "bf0_hal_rcc.h"
 #include "board/board.h"
+#include "board/display.h"
 #include "board/splash.h"
 #include "drivers/sf32lb52/debounced_button_definitions.h"
 #include "drivers/hrm/gh3x2x/gh3x2x.h"
@@ -107,6 +108,23 @@ static PwmState s_pwm1_ch3_state = {
 static DisplayJDIState s_display_state = {
     .hlcdc = {
         .Instance = LCDC1,
+        .Init = {
+            .lcd_itf = LCDC_INTF_JDI_PARALLEL,
+            .color_mode = LCDC_PIXEL_FORMAT_RGB332,
+            .freq = 746268,  // HCK frequency
+            .cfg = {
+              .jdi = {
+                .bank_col_head = 2,
+                .valid_columns = PBL_DISPLAY_WIDTH,
+                .bank_col_tail = 6,
+                .bank_row_head = 0,
+                .valid_rows = PBL_DISPLAY_HEIGHT,
+                .bank_row_tail = 6,
+                .enb_start_col = 3,
+                .enb_end_col = 99,
+            },
+          },
+        },
     },
 };
 
@@ -375,6 +393,13 @@ static const I2CSlavePort s_i2c_lsm2dw12 = {
 
 I2CSlavePort *const I2C_LSM2DW12 = &s_i2c_lsm2dw12;
 
+static const I2CSlavePort s_i2c_lsm6dso = {
+    .bus = &s_i2c_bus_2,
+    .address = 0x6a,
+};
+
+I2CSlavePort *const I2C_LSM6DSO = &s_i2c_lsm6dso;
+
 static const I2CSlavePort s_i2c_mmc5603nj = {
     .bus = &s_i2c_bus_2,
     .address = 0x30,
@@ -542,7 +567,7 @@ const BoardConfigPower BOARD_CONFIG_POWER = {
 };
 
 const BoardConfig BOARD_CONFIG = {
-  .backlight_on_percent = 45,
+  .backlight_on_percent = 70,
   .ambient_light_dark_threshold = 150,
   .ambient_k_delta_threshold = 25,
   .dynamic_backlight_min_threshold = 15,
@@ -685,6 +710,25 @@ void board_early_init(void) {
 
   //set Sifli chipset pwrkey reset time to 15s, so it always use PMIC cold reboot for long press 
   hwp_pmuc->PWRKEY_CNT = PWRKEY_RESET_CNT;
+
+  // Disable 1V8 LDO (feeds PSRAM, we use VDD_SiP to power it)
+  hwp_pmuc->PERI_LDO &= ~(PMUC_PERI_LDO_EN_LDO18_Msk | PMUC_PERI_LDO_LDO18_PD_Msk);
+  hwp_pmuc->PERI_LDO |= PMUC_PERI_LDO_LDO18_PD_Msk;
+
+  // Set all PSRAM pins as analog (low-power)
+  HAL_PIN_Set_Analog(PAD_SA00, 1);
+  HAL_PIN_Set_Analog(PAD_SA01, 1);
+  HAL_PIN_Set_Analog(PAD_SA02, 1);
+  HAL_PIN_Set_Analog(PAD_SA03, 1);
+  HAL_PIN_Set_Analog(PAD_SA04, 1);
+  HAL_PIN_Set_Analog(PAD_SA05, 1);
+  HAL_PIN_Set_Analog(PAD_SA06, 1);
+  HAL_PIN_Set_Analog(PAD_SA07, 1);
+  HAL_PIN_Set_Analog(PAD_SA08, 1);
+  HAL_PIN_Set_Analog(PAD_SA09, 1);
+  HAL_PIN_Set_Analog(PAD_SA10, 1);
+  HAL_PIN_Set_Analog(PAD_SA11, 1);
+  HAL_PIN_Set_Analog(PAD_SA12, 1);
 }
 
 void board_init(void) {

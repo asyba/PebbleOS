@@ -48,6 +48,9 @@ master_capability_set = {
     'HAS_VIBE_AW86225',
     'HAS_PBLBOOT',
     'HAS_DYNAMIC_BACKLIGHT',
+    'HAS_COLOR_BACKLIGHT',
+    'HAS_SPEAKER',
+    'HAS_ACCEL_SENSITIVITY'
 }
 
 board_capability_dicts = [
@@ -317,6 +320,7 @@ board_capability_dicts = [
             'HAS_VIBE_DRV2604',
             'HAS_PMIC',
             'HAS_FLASH_OTP',
+            'HAS_ACCEL_SENSITIVITY',
         },
     },
     {
@@ -344,6 +348,9 @@ board_capability_dicts = [
             'HAS_MAGNETOMETER',
             'HAS_PBLBOOT',
             'HAS_DYNAMIC_BACKLIGHT',
+            'HAS_COLOR_BACKLIGHT',
+            'HAS_SPEAKER',
+            'HAS_ACCEL_SENSITIVITY',
         },
     },
 ]

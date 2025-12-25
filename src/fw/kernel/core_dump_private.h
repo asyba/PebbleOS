@@ -24,8 +24,8 @@
 #endif
 
 // Max number of core dump images we can fit in our allocated space
-#define CORE_DUMP_FLASH_START   FLASH_REGION_FIRMWARE_DEST_BEGIN
-#define CORE_DUMP_FLASH_END     FLASH_REGION_FIRMWARE_DEST_END
+#define CORE_DUMP_FLASH_START   FLASH_REGION_CD_BEGIN
+#define CORE_DUMP_FLASH_END     FLASH_REGION_CD_END
 #define CORE_DUMP_FLASH_SIZE    (CORE_DUMP_FLASH_END - CORE_DUMP_FLASH_START)
 #if defined(MICRO_FAMILY_STM32F2)
 #define CORE_DUMP_MAX_IMAGES 3
@@ -36,7 +36,7 @@
 #elif defined(MICRO_FAMILY_NRF52840)
 #define CORE_DUMP_MAX_IMAGES 2
 #elif defined(MICRO_FAMILY_SF32LB52)
-#define CORE_DUMP_MAX_IMAGES 2
+#define CORE_DUMP_MAX_IMAGES 1
 #else
 #error "Unsupported micro family"
 #endif
