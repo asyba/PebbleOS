@@ -407,16 +407,34 @@ static void prv_handle_queue_count_update(const AMSEntityUpdateNotification *upd
 
 static void prv_handle_queue_shuffle_mode_update(const AMSEntityUpdateNotification *update,
                                                  const uint16_t value_length) {
-  const AMSShuffleMode shuffle_mode = prv_parse_queue_value(update->value_str, value_length);
-  PBL_LOG(LOG_LEVEL_DEBUG, "Queue shuffle mode update: %d", shuffle_mode);
-  // TODO: Do something with this info
+  const AMSShuffleMode ams_shuffle_mode = prv_parse_queue_value(update->value_str, value_length);
+  PBL_LOG(LOG_LEVEL_DEBUG, "AMS Shuffle Mode update: %d", ams_shuffle_mode);
+
+  MusicShuffleMode shuffle_mode = MusicShuffleModeOff;
+  if (ams_shuffle_mode == AMSShuffleModeOne || ams_shuffle_mode == AMSShuffleModeAll) {
+    shuffle_mode = MusicShuffleModeOn;
+  }
+  music_update_shuffle_mode(shuffle_mode);
 }
 
 static void prv_handle_queue_repeat_mode_update(const AMSEntityUpdateNotification *update,
                                                 const uint16_t value_length) {
-  const AMSRepeatMode repeat_mode = prv_parse_queue_value(update->value_str, value_length);
-  PBL_LOG(LOG_LEVEL_DEBUG, "Queue repeat mode update: %d", repeat_mode);
-  // TODO: Do something with this info
+  const AMSRepeatMode ams_repeat_mode = prv_parse_queue_value(update->value_str, value_length);
+  PBL_LOG(LOG_LEVEL_DEBUG, "AMS Repeat Mode update: %d", ams_repeat_mode);
+
+  MusicRepeatMode repeat_mode = MusicRepeatModeUnknown;
+  switch (ams_repeat_mode) {
+    case AMSRepeatModeOff:
+      repeat_mode = MusicRepeatModeOff;
+      break;
+    case AMSRepeatModeOne:
+      repeat_mode = MusicRepeatModeOne;
+      break;
+    case AMSRepeatModeAll:
+      repeat_mode = MusicRepeatModeAll;
+      break;
+  }
+  music_update_repeat_mode(repeat_mode);
 }
 
 // -------------------------------------------------------------------------------------------------

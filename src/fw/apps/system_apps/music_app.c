@@ -4,6 +4,7 @@
 #include "music_app.h"
 
 #include "applib/app.h"
+#include "applib/app_logging.h"
 #include "applib/event_service_client.h"
 #include "applib/app_timer.h"
 #include "applib/fonts/fonts.h"
@@ -780,6 +781,9 @@ static void prv_update_shuffle_repeat_indicators(MusicAppData *data) {
   bool show_shuffle = always_show || is_shuffle_on;
   bool show_repeat = always_show || is_repeat_on;
   
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Updating indicators: S:%d R:%d AS:%d (ShowS:%d ShowR:%d)",
+          shuffle, repeat, always_show, show_shuffle, show_repeat);
+  
   bitmap_layer_set_bitmap(&data->shuffle_icon_layer, is_shuffle_on ? &data->shuffle_icon_active : &data->shuffle_icon);
   bitmap_layer_set_bitmap(&data->repeat_icon_layer, is_repeat_on ? &data->repeat_icon_active : &data->repeat_icon);
 
@@ -881,21 +885,15 @@ static void prv_handle_tick_time(struct tm *tick_time, TimeUnits units_changed) 
 }
 
 static void prv_set_pos_update_timer(MusicAppData* data, MusicPlayState playstate) {
-  // Don't subscribe to updates if progress reporting not supported OR user disabled it
-  if (!music_is_progress_reporting_supported() || !shell_prefs_get_music_show_progress_bar()) {
-    tick_timer_service_unsubscribe();
-    return;
+  TimeUnits units = MINUTE_UNIT;
+
+  if (playstate == MusicPlayStatePlaying &&
+      music_is_progress_reporting_supported() &&
+      shell_prefs_get_music_show_progress_bar()) {
+    units |= SECOND_UNIT;
   }
-  
-  switch (playstate) {
-    case MusicPlayStatePlaying:
-      // We need to update the progress bar every second.
-      tick_timer_service_subscribe(SECOND_UNIT, prv_handle_tick_time);
-      break;
-    default:
-      // We're no longer updating the progress bar; unsubscribe.
-      tick_timer_service_unsubscribe();
-  }
+
+  tick_timer_service_subscribe(units, prv_handle_tick_time);
 }
 
 static void prv_configure_music_text_layer(
@@ -1062,6 +1060,11 @@ static void prv_music_event_handler(PebbleEvent *event, void *context) {
       prv_update_track_progress(data);
       prv_update_layout(data);
       return;
+    case PebbleMediaEventTypeShuffleModeChanged:
+    case PebbleMediaEventTypeRepeatModeChanged:
+      APP_LOG(APP_LOG_LEVEL_ERROR, "MusicApp received Shuffle/Repeat changed event");
+      prv_update_shuffle_repeat_indicators(data);
+      break;
     default: return;
   }
 }

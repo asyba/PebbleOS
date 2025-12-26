@@ -351,12 +351,28 @@ void music_update_shuffle_mode(uint8_t shuffle_mode) {
   mutex_lock_recursive(s_music_ctx.mutex);
   s_music_ctx.shuffle_mode = (MusicShuffleMode)shuffle_mode;
   mutex_unlock_recursive(s_music_ctx.mutex);
+
+  PebbleEvent event = {
+    .type = PEBBLE_MEDIA_EVENT,
+    .media = {
+      .type = PebbleMediaEventTypeShuffleModeChanged,
+    },
+  };
+  event_put(&event);
 }
 
 void music_update_repeat_mode(uint8_t repeat_mode) {
   mutex_lock_recursive(s_music_ctx.mutex);
   s_music_ctx.repeat_mode = (MusicRepeatMode)repeat_mode;
   mutex_unlock_recursive(s_music_ctx.mutex);
+
+  PebbleEvent event = {
+    .type = PEBBLE_MEDIA_EVENT,
+    .media = {
+      .type = PebbleMediaEventTypeRepeatModeChanged,
+    },
+  };
+  event_put(&event);
 }
 
 MusicPlayState music_get_playback_state(void) {
