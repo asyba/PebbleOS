@@ -19,6 +19,7 @@
 #include "resource/resource_ids.auto.h"
 #include "services/common/i18n/i18n.h"
 #include "system/passert.h"
+#include "shell/normal/app_idle_timeout.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -158,6 +159,7 @@ static void prv_window_load(Window *window) {
 }
 
 static void prv_window_unload(Window *window) {
+  app_idle_timeout_stop();
   SettingsWatchfacesData *data = window_get_user_data(window);
   menu_layer_deinit(&data->menu_layer);
   app_menu_data_source_deinit(&data->data_source);
@@ -179,6 +181,7 @@ static void handle_init(void) {
     .appear = prv_window_appear,
     .unload = prv_window_unload,
   });
+  app_idle_timeout_start();
   const bool animated = true;
   app_window_stack_push(window, animated);
 }

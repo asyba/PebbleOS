@@ -33,6 +33,7 @@
 #include "util/date.h"
 #include "util/list.h"
 #include "util/string.h"
+#include "shell/normal/app_idle_timeout.h"
 
 #if !TINTIN_FORCE_FIT
 typedef struct LoadedNotificationNode {
@@ -759,11 +760,13 @@ static void prv_handle_init(void) {
   event_service_client_subscribe(&data->notification_event_info);
   prv_load_notification_storage(data);
 
+  app_idle_timeout_start();
   prv_push_window(data);
 }
 
 static void prv_handle_deinit(void) {
   NotificationsData *data = app_state_get_user_data();
+  app_idle_timeout_stop();
 #if PBL_ROUND
   status_bar_layer_deinit(&data->status_bar_layer);
 #endif
