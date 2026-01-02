@@ -4,6 +4,7 @@
 #include "music_app.h"
 
 #include "applib/app.h"
+#include "applib/app_logging.h"
 #include "applib/event_service_client.h"
 #include "applib/app_timer.h"
 #include "applib/fonts/fonts.h"
@@ -22,6 +23,7 @@
 #include "process_management/app_manager.h"
 #include "process_state/app_state/app_state.h"
 #include "resource/resource_ids.auto.h"
+#include "shell/prefs.h"
 #include "system/logging.h"
 #include "system/passert.h"
 #include "util/math.h"
@@ -29,6 +31,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 enum ActionBarState {
   ActionBarStateSkip,
@@ -255,6 +258,17 @@ typedef struct {
   bool volume_is_up;
 
   MusicNoMusicWindow *no_music_window;
+
+  BitmapLayer shuffle_icon_layer;
+  GBitmap shuffle_icon;
+  GBitmap shuffle_icon_active;
+  
+  BitmapLayer repeat_icon_layer;
+  GBitmap repeat_icon;
+  GBitmap repeat_icon_active;
+
+  TextLayer clock_layer;
+  char clock_buffer[16];
 
 #if CAPABILITY_HAS_VIBE_SCORES
   VibeScore *score;
@@ -489,11 +503,17 @@ static void prv_update_ui_state_skipping(MusicAppData *data, bool animated) {
                                      &data->icon_skip_forward, animated);
   action_bar_layer_set_icon_animated(&data->action_bar, BUTTON_BACKWARD,
                                      &data->icon_skip_backward, animated);
+  
+  bool show_volume_controls = shell_prefs_get_music_show_volume_controls();
+  
   if (music_get_playback_state() == MusicPlayStatePaused) {
     action_bar_layer_set_icon_animated(&data->action_bar, BUTTON_ID_SELECT, &data->icon_play,
                                        animated);
-  } else {
+  } else if (show_volume_controls) {
     action_bar_layer_set_icon_animated(&data->action_bar, BUTTON_ID_SELECT, &data->icon_ellipsis,
+                                       animated);
+  } else {
+    action_bar_layer_set_icon_animated(&data->action_bar, BUTTON_ID_SELECT, &data->icon_pause,
                                        animated);
   }
 }
@@ -568,6 +588,12 @@ static void prv_volume_click_handler(ClickRecognizerRef recognizer, void *contex
 }
 
 static void prv_ellipsis_click_handler(ClickRecognizerRef recognizer, void *context) {
+  // If volume controls are hidden, just toggle play/pause instead
+  if (!shell_prefs_get_music_show_volume_controls()) {
+    music_command_send(MusicCommandTogglePlayPause);
+    return;
+  }
+  
   MusicAppData *data = context;
   data->action_bar_revert_timer = app_timer_register(ACTION_BAR_TIMEOUT_MS, prv_action_bar_revert,
                                                      data);
@@ -613,6 +639,11 @@ static void prv_volume_long_click_end_handler(ClickRecognizerRef recognizer, voi
 }
 
 static void prv_play_pause_long_click_start_handler(ClickRecognizerRef recognizer, void *context) {
+  // Only allow long-press to volume mode if volume controls are enabled
+  if (!shell_prefs_get_music_show_volume_controls()) {
+    return;
+  }
+  
   prv_toggle_playing();
   prv_set_action_bar_state(context, ActionBarStateLongPress);
   prv_do_haptic_feedback_vibe(context);
@@ -625,17 +656,26 @@ static void prv_play_pause_long_click_end_handler(ClickRecognizerRef recognizer,
 static void prv_skipping_click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_UP, prv_skip_click_handler);
   window_single_click_subscribe(BUTTON_ID_DOWN, prv_skip_click_handler);
+  
+  bool show_volume_controls = shell_prefs_get_music_show_volume_controls();
+  
   if (music_get_playback_state() == MusicPlayStatePaused) {
     window_single_click_subscribe(BUTTON_ID_SELECT, prv_play_pause_click_handler);
-  } else {
+  } else if (show_volume_controls) {
     window_single_click_subscribe(BUTTON_ID_SELECT, prv_ellipsis_click_handler);
+  } else {
+    window_single_click_subscribe(BUTTON_ID_SELECT, prv_play_pause_click_handler);
   }
-  window_long_click_subscribe(BUTTON_ID_UP, 0, prv_volume_long_click_start_handler,
-                              prv_volume_long_click_end_handler);
-  window_long_click_subscribe(BUTTON_ID_DOWN, 0, prv_volume_long_click_start_handler,
-                              prv_volume_long_click_end_handler);
-  window_long_click_subscribe(BUTTON_ID_SELECT, 0, prv_play_pause_long_click_start_handler,
-                              prv_play_pause_long_click_end_handler);
+  
+  // Only enable volume long-press if volume controls are shown
+  if (show_volume_controls) {
+    window_long_click_subscribe(BUTTON_ID_UP, 0, prv_volume_long_click_start_handler,
+                                prv_volume_long_click_end_handler);
+    window_long_click_subscribe(BUTTON_ID_DOWN, 0, prv_volume_long_click_start_handler,
+                                prv_volume_long_click_end_handler);
+    window_long_click_subscribe(BUTTON_ID_SELECT, 0, prv_play_pause_long_click_start_handler,
+                                prv_play_pause_long_click_end_handler);
+  }
 }
 
 static void prv_volume_click_config_provider(void *context) {
@@ -647,8 +687,16 @@ static void prv_volume_click_config_provider(void *context) {
 }
 
 static void prv_update_layout(MusicAppData *data) {
-  // Hide track position bar if progress reporting not supported
-  bool hide_layer = !music_is_progress_reporting_supported();
+  bool show_progress_bar = shell_prefs_get_music_show_progress_bar();
+  
+  bool hide_layer;
+  if (!show_progress_bar) {
+    hide_layer = true;
+  } else {
+    // Hide track position bar if progress reporting not supported
+    hide_layer = !music_is_progress_reporting_supported();
+  }
+  
   layer_set_hidden(&data->track_pos_bar.layer, hide_layer);
   layer_set_hidden(&data->position_text_layer.layer, hide_layer);
   layer_set_hidden(&data->length_text_layer.layer, hide_layer);
@@ -720,8 +768,40 @@ static void prv_pop_no_music_window(MusicAppData *data) {
   }
 }
 
+static void prv_update_shuffle_repeat_indicators(MusicAppData *data) {
+  MusicShuffleMode shuffle = music_get_shuffle_mode();
+  MusicRepeatMode repeat = music_get_repeat_mode();
+  bool always_show = shell_prefs_get_music_show_shuffle_repeat();
+  
+  bool is_shuffle_on = (shuffle == MusicShuffleModeOn);
+  bool is_repeat_on = (repeat == MusicRepeatModeOne || repeat == MusicRepeatModeAll);
+
+  // When always_show is true, show icons even for Unknown states (useful for testing)
+  // When always_show is false (Hide), only show when mode is actively On/enabled
+  bool show_shuffle = always_show || is_shuffle_on;
+  bool show_repeat = always_show || is_repeat_on;
+  
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Updating indicators: S:%d R:%d AS:%d (ShowS:%d ShowR:%d)",
+          shuffle, repeat, always_show, show_shuffle, show_repeat);
+  
+  bitmap_layer_set_bitmap(&data->shuffle_icon_layer, is_shuffle_on ? &data->shuffle_icon_active : &data->shuffle_icon);
+  bitmap_layer_set_bitmap(&data->repeat_icon_layer, is_repeat_on ? &data->repeat_icon_active : &data->repeat_icon);
+
+  layer_set_hidden(&data->shuffle_icon_layer.layer, !show_shuffle);
+  layer_set_hidden(&data->repeat_icon_layer.layer, !show_repeat);
+}
+
 static void prv_update_now_playing(MusicAppData *data) {
-  layer_set_hidden((Layer *)&data->track_pos_bar, !music_is_progress_reporting_supported());
+  bool show_progress_bar = shell_prefs_get_music_show_progress_bar();
+  
+  bool hide_layer;
+  if (!show_progress_bar) {
+    hide_layer = true;
+  } else {
+    hide_layer = !music_is_progress_reporting_supported();
+  }
+  
+  layer_set_hidden((Layer *)&data->track_pos_bar, hide_layer);
 
   char artist_buffer[MUSIC_BUFFER_LENGTH];
   char title_buffer[MUSIC_BUFFER_LENGTH];
@@ -747,6 +827,7 @@ static void prv_update_now_playing(MusicAppData *data) {
     }
   }
   prv_update_layout(data);
+  prv_update_shuffle_repeat_indicators(data);
 }
 
 static void prv_copy_time_period(char *buffer, size_t n, uint32_t period_s) {
@@ -765,6 +846,11 @@ static void prv_update_track_progress(MusicAppData *data) {
   if (data->pause_track_pos_updates) {
     return;
   }
+  
+  if (!shell_prefs_get_music_show_progress_bar()) {
+    return;
+  }
+  
   if (!music_is_progress_reporting_supported()) {
     progress_layer_set_progress(&data->track_pos_bar, 0);
   } else {
@@ -783,25 +869,31 @@ static void prv_update_pos(void) {
   prv_update_track_progress(data);
 }
 
-static void prv_handle_tick_time(struct tm *time, TimeUnits units_changed) {
+static void prv_update_clock(MusicAppData *data) {
+  clock_copy_time_string(data->clock_buffer, sizeof(data->clock_buffer));
+  layer_mark_dirty(&data->clock_layer.layer);
+}
+
+static void prv_handle_tick_time(struct tm *tick_time, TimeUnits units_changed) {
+  MusicAppData *data = app_state_get_user_data();
   if (music_get_playback_state() == MusicPlayStatePlaying) {
     prv_update_pos();
+  }
+  if (units_changed & MINUTE_UNIT) {
+    prv_update_clock(data);
   }
 }
 
 static void prv_set_pos_update_timer(MusicAppData* data, MusicPlayState playstate) {
-  if (!music_is_progress_reporting_supported()) {
-    return;
+  TimeUnits units = MINUTE_UNIT;
+
+  if (playstate == MusicPlayStatePlaying &&
+      music_is_progress_reporting_supported() &&
+      shell_prefs_get_music_show_progress_bar()) {
+    units |= SECOND_UNIT;
   }
-  switch (playstate) {
-    case MusicPlayStatePlaying:
-      // We need to update the progress bar every second.
-      tick_timer_service_subscribe(SECOND_UNIT, prv_handle_tick_time);
-      break;
-    default:
-      // We're no longer updating the progress bar; unsubscribe.
-      tick_timer_service_unsubscribe();
-  }
+
+  tick_timer_service_subscribe(units, prv_handle_tick_time);
 }
 
 static void prv_configure_music_text_layer(
@@ -884,6 +976,10 @@ static void prv_init_ui(Window *window) {
 
   StatusBarLayer *status_layer = &data->status_layer;
   status_bar_layer_init(status_layer);
+  
+  // Hide the default clock by setting custom text mode with empty string
+  status_bar_layer_set_title(status_layer, "", false, false);
+
   GRect status_layer_frame = status_layer->layer.frame;
   const int16_t STATUS_BAR_LAYER_WIDTH = PBL_IF_RECT_ELSE(WINDOW_SIZE.w - ACTION_BAR_WIDTH,
                                                           WINDOW_SIZE.w);
@@ -892,11 +988,40 @@ static void prv_init_ui(Window *window) {
   status_bar_layer_set_colors(&data->status_layer, GColorClear, GColorBlack);
   layer_add_child(&data->window.layer, &status_layer->layer);
 
+  // Custom enlarged clock layer
+  const int16_t clock_height = 24;
+  GRect clock_rect = GRect(0, 0, STATUS_BAR_LAYER_WIDTH, clock_height);
+  text_layer_init_with_parameters(&data->clock_layer, &clock_rect, data->clock_buffer,
+                                  fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+                                  GColorBlack, GColorClear, GTextAlignmentCenter,
+                                  GTextOverflowModeTrailingEllipsis);
+  layer_add_child(&window->layer, &data->clock_layer.layer);
+  prv_update_clock(data);
+
   music_get_pos(&data->track_pos, &data->track_length);
 
 #if CAPABILITY_HAS_VIBE_SCORES
   data->score = vibe_score_create_with_resource(RESOURCE_ID_VIBE_SCORE_HAPTIC_FEEDBACK);
 #endif
+
+  // Shuffle and repeat mode indicators - positioned to the right of cassette icon (bottom-left)
+  // Display them horizontally (side by side) instead of vertically
+  const int16_t icon_size = 24;  // Match new icon dimensions
+  const int16_t base_x = cassette_rect.origin.x + cassette_rect.size.w + 3;  // 3px margin from cassette
+  const int16_t icon_y = WINDOW_SIZE.h - horizontal_margin - icon_size - 2;  // Align vertically
+  const int16_t icon_spacing = 2;  // Small spacing between icons
+  
+  GRect shuffle_rect = GRect(base_x, icon_y, icon_size, icon_size);
+  bitmap_layer_init(&data->shuffle_icon_layer, &shuffle_rect);
+  bitmap_layer_set_bitmap(&data->shuffle_icon_layer, &data->shuffle_icon);
+  bitmap_layer_set_compositing_mode(&data->shuffle_icon_layer, GCompOpSet);
+  layer_add_child(&data->window.layer, &data->shuffle_icon_layer.layer);
+  
+  GRect repeat_rect = GRect(base_x + icon_size + icon_spacing, icon_y, icon_size, icon_size);
+  bitmap_layer_init(&data->repeat_icon_layer, &repeat_rect);
+  bitmap_layer_set_bitmap(&data->repeat_icon_layer, &data->repeat_icon);
+  bitmap_layer_set_compositing_mode(&data->repeat_icon_layer, GCompOpSet);
+  layer_add_child(&data->window.layer, &data->repeat_icon_layer.layer);
 
   prv_update_now_playing(data);
   prv_update_layout(data);
@@ -924,6 +1049,7 @@ static void prv_music_event_handler(PebbleEvent *event, void *context) {
     case PebbleMediaEventTypePlaybackStateChanged: {
       prv_set_pos_update_timer(data, event->media.playback_state);
       prv_update_ui_state(data, true);
+      prv_update_shuffle_repeat_indicators(data);
       return;
     }
     case PebbleMediaEventTypeVolumeChanged:
@@ -934,6 +1060,11 @@ static void prv_music_event_handler(PebbleEvent *event, void *context) {
       prv_update_track_progress(data);
       prv_update_layout(data);
       return;
+    case PebbleMediaEventTypeShuffleModeChanged:
+    case PebbleMediaEventTypeRepeatModeChanged:
+      APP_LOG(APP_LOG_LEVEL_ERROR, "MusicApp received Shuffle/Repeat changed event");
+      prv_update_shuffle_repeat_indicators(data);
+      break;
     default: return;
   }
 }
@@ -963,6 +1094,14 @@ static void prv_handle_init(void) {
   gbitmap_init_with_resource(&data->icon_play_pause, RESOURCE_ID_MUSIC_ICON_PLAY_PAUSE);
   gbitmap_init_with_resource(&data->icon_volume_up, RESOURCE_ID_MUSIC_ICON_VOLUME_UP);
   gbitmap_init_with_resource(&data->icon_volume_down, RESOURCE_ID_MUSIC_ICON_VOLUME_DOWN);
+
+  // Initialize shuffle and repeat icons
+  gbitmap_init_with_resource(&data->shuffle_icon, RESOURCE_ID_MUSIC_ICON_SHUFFLE);
+  gbitmap_init_with_resource(&data->shuffle_icon_active, RESOURCE_ID_MUSIC_ICON_SHUFFLE_ACTIVE);
+  gbitmap_init_with_resource(&data->repeat_icon, RESOURCE_ID_MUSIC_ICON_REPEAT);
+  gbitmap_init_with_resource(&data->repeat_icon_active, RESOURCE_ID_MUSIC_ICON_REPEAT_ACTIVE);
+
+  // Images for cassette icon
   gbitmap_init_with_resource(&data->image_cassette, RESOURCE_ID_MUSIC_LARGE_CASSETTE);
   gbitmap_init_with_resource(&data->image_pause, RESOURCE_ID_MUSIC_LARGE_PAUSED);
   gbitmap_init_with_resource(&data->image_volume_up, RESOURCE_ID_MUSIC_LARGE_VOLUME_UP);

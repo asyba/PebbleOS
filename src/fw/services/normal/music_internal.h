@@ -63,6 +63,14 @@ void music_update_player_playback_state(const MusicPlayerStateUpdate *state);
 //! @param volume_percent The volume. Valid range: [0, 100]
 void music_update_player_volume_percent(uint8_t volume_percent);
 
+//! Update the shuffle mode of the current player.
+//! @param shuffle_mode The shuffle mode from MusicEndpointShuffleMode enum
+void music_update_shuffle_mode(uint8_t shuffle_mode);
+
+//! Update the repeat mode of the current player.
+//! @param repeat_mode The repeat mode from MusicEndpointRepeatMode enum
+void music_update_repeat_mode(uint8_t repeat_mode);
+
 //! Update the title of the track that's currently playing.
 //! The string doesn't need to be null terminated.
 void music_update_track_title(const char *title, size_t title_length);
