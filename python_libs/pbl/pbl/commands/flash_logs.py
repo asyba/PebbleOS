@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 Core Devices LLC
+# SPDX-FileCopyrightText: 2025 Federico Bechini
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import absolute_import, print_function
@@ -44,16 +44,16 @@ class FlashLogsCommand(PebbleCommand):
             'diorite': (0x280000, 0x20000),
             'silk':    (0x280000, 0x20000),
             
-            # Robert / Emery
-            'emery':   (0x480000, 0x20000),
+            # Robert / Calculus
             'robert':  (0x480000, 0x20000),
             'calculus': (0x480000, 0x20000),
             
             # Asterix
             'asterix': (0x1FD0000, 0x20000),
             
-            # Obelix
+            # Obelix / Getafix
             'obelix': (0x1FCF000, 0x20000),
+            'getafix': (0x1FCF000, 0x20000),
         }
 
         # Normalize board name

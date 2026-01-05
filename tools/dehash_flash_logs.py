@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: 2025 Core Devices LLC
+# SPDX-FileCopyrightText: 2025 Federico Bechini
 # SPDX-License-Identifier: Apache-2.0
 
 """
