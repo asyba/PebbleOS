@@ -61,15 +61,15 @@ enum NotificationsItem {
 // these arrays
 
 static const AlertMask s_alert_mode_values[NUM_ALERT_MODES_IN_LIST] = {
-  AlertMaskAllOn,
-  AlertMaskPhoneCalls,
-  AlertMaskAllOff,
+    AlertMaskAllOn,
+    AlertMaskPhoneCalls,
+    AlertMaskAllOff,
 };
 
 static const char *s_alert_mode_labels[NUM_ALERT_MODES_IN_LIST] = {
-  i18n_noop("Allow All Notifications"),
-  i18n_noop("Allow Phone Calls Only"),
-  i18n_noop("Mute All Notifications"),
+    i18n_noop("Allow All Notifications"),
+    i18n_noop("Allow Phone Calls Only"),
+    i18n_noop("Mute All Notifications"),
 };
 
 static const char *prv_alert_mask_to_label(AlertMask mask) {
@@ -98,29 +98,25 @@ static void prv_filter_menu_push(SettingsNotificationsData *data) {
     }
   }
   const OptionMenuCallbacks callbacks = {
-    .select = prv_filter_menu_select,
+      .select = prv_filter_menu_select,
   };
   /// The option in the Settings app for filtering notifications by type.
   const char *title = i18n_noop("Filter");
-  settings_option_menu_push(
-      title, OptionMenuContentType_DoubleLine, index, &callbacks, cycle_len,
-      true /* icons_enabled */, s_alert_mode_labels, data);
+  settings_option_menu_push(title, OptionMenuContentType_DoubleLine, index, &callbacks, cycle_len,
+                            true /* icons_enabled */, s_alert_mode_labels, data);
 }
 
 // Vibe Settings (If vibes scores disabled for this model)
 //////////////////////////
 #if !CAPABILITY_HAS_VIBE_SCORES
 static const char *strings_for_vibe_intensities[] = {
-  i18n_ctx_noop("NotifVibe", "Disabled"),
-  i18n_ctx_noop("NotifVibe", "Low"),
-  i18n_ctx_noop("NotifVibe", "Medium"),
-  i18n_ctx_noop("NotifVibe", "High")
-};
+    i18n_ctx_noop("NotifVibe", "Disabled"), i18n_ctx_noop("NotifVibe", "Low"),
+    i18n_ctx_noop("NotifVibe", "Medium"), i18n_ctx_noop("NotifVibe", "High")};
 
 static void prv_vibe_menu_select(OptionMenu *option_menu, int selection, void *context) {
   const bool enable_vibration = (selection != 0);
-  const VibeIntensity new_vibe_intensity = enable_vibration ? (selection - INTENSITY_ROW_OFFSET) :
-                                           DEFAULT_VIBE_INTENSITY;
+  const VibeIntensity new_vibe_intensity =
+      enable_vibration ? (selection - INTENSITY_ROW_OFFSET) : DEFAULT_VIBE_INTENSITY;
 
   alerts_set_vibrate(enable_vibration);
   alerts_preferences_set_vibe_intensity(new_vibe_intensity);
@@ -135,7 +131,7 @@ static void prv_vibe_menu_select(OptionMenu *option_menu, int selection, void *c
 
 static void prv_vibe_menu_push(SettingsNotificationsData *data) {
   const OptionMenuCallbacks callbacks = {
-    .select = prv_vibe_menu_select,
+      .select = prv_vibe_menu_select,
   };
   /// The option in the Settings app for choosing a vibration intensity for notifications.
   const char *title = i18n_noop("Vibration");
@@ -143,20 +139,19 @@ static void prv_vibe_menu_push(SettingsNotificationsData *data) {
   if (!alerts_get_vibrate()) {
     selected = 0;
   }
-  settings_option_menu_push(
-      title, OptionMenuContentType_SingleLine, selected, &callbacks,
-      ARRAY_LENGTH(strings_for_vibe_intensities), true /* icons_enabled */,
-      strings_for_vibe_intensities, data);
+  settings_option_menu_push(title, OptionMenuContentType_SingleLine, selected, &callbacks,
+                            ARRAY_LENGTH(strings_for_vibe_intensities), true /* icons_enabled */,
+                            strings_for_vibe_intensities, data);
 }
-#endif  /* !CAPABILITY_HAS_VIBE_SCORES */
+#endif /* !CAPABILITY_HAS_VIBE_SCORES */
 
 // Text Size
 ////////////////////////
 
 static const char *s_text_size_names[] = {
-  [SettingsContentSize_Small]   = i18n_noop("Smaller"),
-  [SettingsContentSize_Default] = i18n_noop("Default"),
-  [SettingsContentSize_Large]   = i18n_noop("Larger"),
+    [SettingsContentSize_Small] = i18n_noop("Smaller"),
+    [SettingsContentSize_Default] = i18n_noop("Default"),
+    [SettingsContentSize_Large] = i18n_noop("Larger"),
 };
 
 static void prv_text_size_menu_select(OptionMenu *option_menu, int selection, void *context) {
@@ -166,15 +161,15 @@ static void prv_text_size_menu_select(OptionMenu *option_menu, int selection, vo
 
 static void prv_text_size_menu_push(SettingsNotificationsData *data) {
   const OptionMenuCallbacks callbacks = {
-    .select = prv_text_size_menu_select,
+      .select = prv_text_size_menu_select,
   };
   /// The option in the Settings app for choosing the text size of notifications.
   const char *title = i18n_noop("Text Size");
   const SettingsContentSize index =
       settings_content_size_from_preferred_size(system_theme_get_content_size());
-  settings_option_menu_push(
-      title, OptionMenuContentType_SingleLine, index, &callbacks, SettingsContentSizeCount,
-      true /* icons_enabled */, s_text_size_names, data);
+  settings_option_menu_push(title, OptionMenuContentType_SingleLine, index, &callbacks,
+                            SettingsContentSizeCount, true /* icons_enabled */, s_text_size_names,
+                            data);
 }
 
 // Text Size
@@ -231,14 +226,13 @@ static void prv_window_timeout_menu_select(OptionMenu *option_menu, int selectio
 static void prv_window_timeout_menu_push(SettingsNotificationsData *data) {
   const int index = prv_window_timeout_get_selection_index();
   const OptionMenuCallbacks callbacks = {
-    .select = prv_window_timeout_menu_select,
+      .select = prv_window_timeout_menu_select,
   };
   /// Status bar title for the Notification Window Timeout settings screen
   const char *title = i18n_noop("Timeout");
-  settings_option_menu_push(
-      title, OptionMenuContentType_SingleLine, index, &callbacks,
-      ARRAY_LENGTH(s_window_timeouts_labels), true /* icons_enabled */, s_window_timeouts_labels,
-      data);
+  settings_option_menu_push(title, OptionMenuContentType_SingleLine, index, &callbacks,
+                            ARRAY_LENGTH(s_window_timeouts_labels), true /* icons_enabled */,
+                            s_window_timeouts_labels, data);
 }
 
 // Design Style
@@ -246,10 +240,10 @@ static void prv_window_timeout_menu_push(SettingsNotificationsData *data) {
 
 #if PBL_BW
 static const char *s_design_style_labels[] = {
-  /// Standard notification design option (default)
-  i18n_noop("Classic"),
-  /// Alternative notification design option
-  i18n_noop("Flat Black"),
+    /// Standard notification design option (default)
+    i18n_noop("Classic"),
+    /// Alternative notification design option
+    i18n_noop("Flat Black"),
 };
 
 static int prv_design_style_get_selection_index(void) {
@@ -264,14 +258,13 @@ static void prv_design_style_menu_select(OptionMenu *option_menu, int selection,
 static void prv_design_style_menu_push(SettingsNotificationsData *data) {
   const int index = prv_design_style_get_selection_index();
   const OptionMenuCallbacks callbacks = {
-    .select = prv_design_style_menu_select,
+      .select = prv_design_style_menu_select,
   };
   /// Status bar title for the Notification Design Style settings screen
   const char *title = i18n_noop("Banner Style");
-  settings_option_menu_push(
-      title, OptionMenuContentType_SingleLine, index, &callbacks,
-      ARRAY_LENGTH(s_design_style_labels), true /* icons_enabled */, s_design_style_labels,
-      data);
+  settings_option_menu_push(title, OptionMenuContentType_SingleLine, index, &callbacks,
+                            ARRAY_LENGTH(s_design_style_labels), true /* icons_enabled */,
+                            s_design_style_labels, data);
 }
 #endif /* PBL_BW */
 
@@ -314,8 +307,8 @@ static uint16_t prv_num_rows_cb(SettingsCallbacks *context) {
   return NotificationsItem_Count;
 }
 
-static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
-                            const Layer *cell_layer, uint16_t row, bool selected) {
+static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx, const Layer *cell_layer,
+                            uint16_t row, bool selected) {
   SettingsNotificationsData *data = ((SettingsOptionMenuData *)context)->context;
   const char *subtitle = NULL;
   const char *title = NULL;
@@ -336,7 +329,7 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
         subtitle = strings_for_vibe_intensities[0];
       }
       break;
-#endif  /* !CAPABILITY_HAS_VIBE_SCORES */
+#endif /* !CAPABILITY_HAS_VIBE_SCORES */
     case NotificationsItemTextSize: {
       /// String within Settings->Notifications that describes the text font size
       title = i18n_noop("Text Size");
@@ -351,7 +344,7 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       subtitle = s_window_timeouts_labels[prv_window_timeout_get_selection_index()];
       break;
     }
-  #if PBL_BW
+#if PBL_BW
     case NotificationsItemDesignStyle: {
       /// String within Settings->Notifications that describes the notification design style
       title = i18n_noop("Banner Style");
@@ -386,7 +379,7 @@ static void prv_deinit_cb(SettingsCallbacks *context) {
 }
 
 static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
-  SettingsNotificationsData *data = (SettingsNotificationsData *) context;
+  SettingsNotificationsData *data = (SettingsNotificationsData *)context;
 
   switch (row) {
     case NotificationsItemFilter:
@@ -399,7 +392,7 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       }
       prv_vibe_menu_push(data);
       break;
-#endif  /* !CAPABILITY_HAS_VIBE_SCORES */
+#endif /* !CAPABILITY_HAS_VIBE_SCORES */
     case NotificationsItemTextSize:
       prv_text_size_menu_push(data);
       break;
@@ -437,33 +430,32 @@ static void prv_settings_notifications_event_handler(PebbleEvent *event, void *c
 }
 
 static void prv_expand_cb(SettingsCallbacks *context) {
-  SettingsNotificationsData *data = (SettingsNotificationsData *) context;
+  SettingsNotificationsData *data = (SettingsNotificationsData *)context;
 
-  data->battery_connection_event_info = (EventServiceInfo) {
-    .type = PEBBLE_BATTERY_CONNECTION_EVENT,
-    .handler = prv_settings_notifications_event_handler,
+  data->battery_connection_event_info = (EventServiceInfo){
+      .type = PEBBLE_BATTERY_CONNECTION_EVENT,
+      .handler = prv_settings_notifications_event_handler,
   };
   event_service_client_subscribe(&data->battery_connection_event_info);
-
 }
 
 static void prv_hide_cb(SettingsCallbacks *context) {
-  SettingsNotificationsData *data = (SettingsNotificationsData *) context;
+  SettingsNotificationsData *data = (SettingsNotificationsData *)context;
 
   event_service_client_unsubscribe(&data->battery_connection_event_info);
 }
 
 static Window *prv_init(void) {
-  SettingsNotificationsData* data = app_malloc_check(sizeof(*data));
+  SettingsNotificationsData *data = app_malloc_check(sizeof(*data));
   *data = (SettingsNotificationsData){};
 
-  data->callbacks = (SettingsCallbacks) {
-    .deinit = prv_deinit_cb,
-    .draw_row = prv_draw_row_cb,
-    .select_click = prv_select_click_cb,
-    .num_rows = prv_num_rows_cb,
-    .expand = prv_expand_cb,
-    .hide = prv_hide_cb,
+  data->callbacks = (SettingsCallbacks){
+      .deinit = prv_deinit_cb,
+      .draw_row = prv_draw_row_cb,
+      .select_click = prv_select_click_cb,
+      .num_rows = prv_num_rows_cb,
+      .expand = prv_expand_cb,
+      .hide = prv_hide_cb,
   };
 
   return settings_window_create(SettingsMenuItemNotifications, &data->callbacks);
@@ -471,8 +463,8 @@ static Window *prv_init(void) {
 
 const SettingsModuleMetadata *settings_notifications_get_info(void) {
   static const SettingsModuleMetadata s_module_info = {
-    .name = i18n_noop("Notifications"),
-    .init = prv_init,
+      .name = i18n_noop("Notifications"),
+      .init = prv_init,
   };
 
   return &s_module_info;
@@ -480,6 +472,6 @@ const SettingsModuleMetadata *settings_notifications_get_info(void) {
 
 void analytics_external_collect_notification_settings(void) {
   const uint8_t strength = get_strength_for_intensity(vibe_intensity_get());
-  analytics_set(ANALYTICS_DEVICE_METRIC_SETTING_VIBRATION_STRENGTH,
-                strength, AnalyticsClient_System);
+  analytics_set(ANALYTICS_DEVICE_METRIC_SETTING_VIBRATION_STRENGTH, strength,
+                AnalyticsClient_System);
 }
