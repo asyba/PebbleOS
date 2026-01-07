@@ -13,6 +13,7 @@
 #include "services/common/i18n/i18n.h"
 #include "system/passert.h"
 #include "shell/prefs.h"
+#include "shell/normal/app_idle_timeout.h"
 
 #define SETTINGS_CATEGORY_MENU_CELL_UNFOCUSED_ROUND_VERTICAL_PADDING 14
 
@@ -97,6 +98,7 @@ static void prv_window_load(Window *window) {
 }
 
 static void prv_window_unload(Window *window) {
+  app_idle_timeout_stop();
   SettingsAppData *data = window_get_user_data(window);
   menu_layer_deinit(&data->menu_layer);
   app_free(data);
@@ -113,6 +115,7 @@ static void handle_init(void) {
     .unload = prv_window_unload,
   });
   window_set_background_color(window, GColorBlack);
+  app_idle_timeout_start();
   app_window_stack_push(window, true);
 }
 
