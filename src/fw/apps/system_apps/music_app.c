@@ -22,6 +22,7 @@
 #include "process_management/app_manager.h"
 #include "process_state/app_state/app_state.h"
 #include "resource/resource_ids.auto.h"
+#include "shell/prefs.h"
 #include "system/logging.h"
 #include "system/passert.h"
 #include "util/math.h"
@@ -219,6 +220,9 @@ typedef struct {
 
   TextLayer length_text_layer;
   char length_buffer[9];
+
+  TextLayer clock_layer;
+  char clock_buffer[9];
 
   Animation *transition;
   AppTimer *volume_icon_timer;
@@ -489,11 +493,17 @@ static void prv_update_ui_state_skipping(MusicAppData *data, bool animated) {
                                      &data->icon_skip_forward, animated);
   action_bar_layer_set_icon_animated(&data->action_bar, BUTTON_BACKWARD,
                                      &data->icon_skip_backward, animated);
+  
+  bool show_volume_controls = shell_prefs_get_music_show_volume_controls();
+  
   if (music_get_playback_state() == MusicPlayStatePaused) {
     action_bar_layer_set_icon_animated(&data->action_bar, BUTTON_ID_SELECT, &data->icon_play,
                                        animated);
-  } else {
+  } else if (show_volume_controls) {
     action_bar_layer_set_icon_animated(&data->action_bar, BUTTON_ID_SELECT, &data->icon_ellipsis,
+                                       animated);
+  } else {
+    action_bar_layer_set_icon_animated(&data->action_bar, BUTTON_ID_SELECT, &data->icon_pause,
                                        animated);
   }
 }
@@ -568,6 +578,12 @@ static void prv_volume_click_handler(ClickRecognizerRef recognizer, void *contex
 }
 
 static void prv_ellipsis_click_handler(ClickRecognizerRef recognizer, void *context) {
+  // If volume controls are hidden, just toggle play/pause instead
+  if (!shell_prefs_get_music_show_volume_controls()) {
+    music_command_send(MusicCommandTogglePlayPause);
+    return;
+  }
+  
   MusicAppData *data = context;
   data->action_bar_revert_timer = app_timer_register(ACTION_BAR_TIMEOUT_MS, prv_action_bar_revert,
                                                      data);
@@ -613,6 +629,11 @@ static void prv_volume_long_click_end_handler(ClickRecognizerRef recognizer, voi
 }
 
 static void prv_play_pause_long_click_start_handler(ClickRecognizerRef recognizer, void *context) {
+  // Only allow long-press to volume mode if volume controls are enabled
+  if (!shell_prefs_get_music_show_volume_controls()) {
+    return;
+  }
+  
   prv_toggle_playing();
   prv_set_action_bar_state(context, ActionBarStateLongPress);
   prv_do_haptic_feedback_vibe(context);
@@ -625,17 +646,26 @@ static void prv_play_pause_long_click_end_handler(ClickRecognizerRef recognizer,
 static void prv_skipping_click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_UP, prv_skip_click_handler);
   window_single_click_subscribe(BUTTON_ID_DOWN, prv_skip_click_handler);
+  
+  bool show_volume_controls = shell_prefs_get_music_show_volume_controls();
+  
   if (music_get_playback_state() == MusicPlayStatePaused) {
     window_single_click_subscribe(BUTTON_ID_SELECT, prv_play_pause_click_handler);
-  } else {
+  } else if (show_volume_controls) {
     window_single_click_subscribe(BUTTON_ID_SELECT, prv_ellipsis_click_handler);
+  } else {
+    window_single_click_subscribe(BUTTON_ID_SELECT, prv_play_pause_click_handler);
   }
-  window_long_click_subscribe(BUTTON_ID_UP, 0, prv_volume_long_click_start_handler,
-                              prv_volume_long_click_end_handler);
-  window_long_click_subscribe(BUTTON_ID_DOWN, 0, prv_volume_long_click_start_handler,
-                              prv_volume_long_click_end_handler);
-  window_long_click_subscribe(BUTTON_ID_SELECT, 0, prv_play_pause_long_click_start_handler,
-                              prv_play_pause_long_click_end_handler);
+  
+  // Only enable volume long-press if volume controls are shown
+  if (show_volume_controls) {
+    window_long_click_subscribe(BUTTON_ID_UP, 0, prv_volume_long_click_start_handler,
+                                prv_volume_long_click_end_handler);
+    window_long_click_subscribe(BUTTON_ID_DOWN, 0, prv_volume_long_click_start_handler,
+                                prv_volume_long_click_end_handler);
+    window_long_click_subscribe(BUTTON_ID_SELECT, 0, prv_play_pause_long_click_start_handler,
+                                prv_play_pause_long_click_end_handler);
+  }
 }
 
 static void prv_volume_click_config_provider(void *context) {
@@ -647,8 +677,16 @@ static void prv_volume_click_config_provider(void *context) {
 }
 
 static void prv_update_layout(MusicAppData *data) {
-  // Hide track position bar if progress reporting not supported
-  bool hide_layer = !music_is_progress_reporting_supported();
+  bool show_progress_bar = shell_prefs_get_music_show_progress_bar();
+  
+  bool hide_layer;
+  if (!show_progress_bar) {
+    hide_layer = true;
+  } else {
+    // Hide track position bar if progress reporting not supported
+    hide_layer = !music_is_progress_reporting_supported();
+  }
+  
   layer_set_hidden(&data->track_pos_bar.layer, hide_layer);
   layer_set_hidden(&data->position_text_layer.layer, hide_layer);
   layer_set_hidden(&data->length_text_layer.layer, hide_layer);
@@ -721,7 +759,16 @@ static void prv_pop_no_music_window(MusicAppData *data) {
 }
 
 static void prv_update_now_playing(MusicAppData *data) {
-  layer_set_hidden((Layer *)&data->track_pos_bar, !music_is_progress_reporting_supported());
+  bool show_progress_bar = shell_prefs_get_music_show_progress_bar();
+  
+  bool hide_layer;
+  if (!show_progress_bar) {
+    hide_layer = true;
+  } else {
+    hide_layer = !music_is_progress_reporting_supported();
+  }
+  
+  layer_set_hidden((Layer *)&data->track_pos_bar, hide_layer);
 
   char artist_buffer[MUSIC_BUFFER_LENGTH];
   char title_buffer[MUSIC_BUFFER_LENGTH];
@@ -765,6 +812,11 @@ static void prv_update_track_progress(MusicAppData *data) {
   if (data->pause_track_pos_updates) {
     return;
   }
+  
+  if (!shell_prefs_get_music_show_progress_bar()) {
+    return;
+  }
+  
   if (!music_is_progress_reporting_supported()) {
     progress_layer_set_progress(&data->track_pos_bar, 0);
   } else {
@@ -783,24 +835,36 @@ static void prv_update_pos(void) {
   prv_update_track_progress(data);
 }
 
+static void prv_update_clock(MusicAppData *data) {
+  clock_copy_time_string(data->clock_buffer, sizeof(data->clock_buffer));
+  layer_mark_dirty(&data->clock_layer.layer);
+}
+
 static void prv_handle_tick_time(struct tm *time, TimeUnits units_changed) {
+  MusicAppData *data = app_state_get_user_data();
   if (music_get_playback_state() == MusicPlayStatePlaying) {
     prv_update_pos();
+  }
+  if (units_changed & MINUTE_UNIT) {
+    prv_update_clock(data);
   }
 }
 
 static void prv_set_pos_update_timer(MusicAppData* data, MusicPlayState playstate) {
-  if (!music_is_progress_reporting_supported()) {
+  // Don't subscribe to updates if progress reporting not supported OR user disabled it
+  if (!music_is_progress_reporting_supported() || !shell_prefs_get_music_show_progress_bar()) {
+    tick_timer_service_unsubscribe();
     return;
   }
+  
   switch (playstate) {
     case MusicPlayStatePlaying:
       // We need to update the progress bar every second.
       tick_timer_service_subscribe(SECOND_UNIT, prv_handle_tick_time);
       break;
     default:
-      // We're no longer updating the progress bar; unsubscribe.
-      tick_timer_service_unsubscribe();
+      // We're no longer updating the progress bar, but we still need minute updates for the clock.
+      tick_timer_service_subscribe(MINUTE_UNIT, prv_handle_tick_time);
   }
 }
 
@@ -884,6 +948,10 @@ static void prv_init_ui(Window *window) {
 
   StatusBarLayer *status_layer = &data->status_layer;
   status_bar_layer_init(status_layer);
+  
+  // Hide the default clock by setting custom text mode with empty string
+  status_bar_layer_set_title(status_layer, "", false, false);
+
   GRect status_layer_frame = status_layer->layer.frame;
   const int16_t STATUS_BAR_LAYER_WIDTH = PBL_IF_RECT_ELSE(WINDOW_SIZE.w - ACTION_BAR_WIDTH,
                                                           WINDOW_SIZE.w);
@@ -891,6 +959,16 @@ static void prv_init_ui(Window *window) {
   layer_set_frame(&status_layer->layer, &status_layer_frame);
   status_bar_layer_set_colors(&data->status_layer, GColorClear, GColorBlack);
   layer_add_child(&data->window.layer, &status_layer->layer);
+
+  // Custom enlarged clock layer
+  const int16_t clock_height = 24;
+  GRect clock_rect = GRect(0, 0, STATUS_BAR_LAYER_WIDTH, clock_height);
+  text_layer_init_with_parameters(&data->clock_layer, &clock_rect, data->clock_buffer,
+                                  fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+                                  GColorBlack, GColorClear, GTextAlignmentCenter,
+                                  GTextOverflowModeTrailingEllipsis);
+  layer_add_child(&window->layer, &data->clock_layer.layer);
+  prv_update_clock(data);
 
   music_get_pos(&data->track_pos, &data->track_length);
 
