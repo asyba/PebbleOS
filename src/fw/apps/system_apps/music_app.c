@@ -221,6 +221,9 @@ typedef struct {
   TextLayer length_text_layer;
   char length_buffer[9];
 
+  TextLayer clock_layer;
+  char clock_buffer[9];
+
   Animation *transition;
   AppTimer *volume_icon_timer;
 
@@ -832,9 +835,18 @@ static void prv_update_pos(void) {
   prv_update_track_progress(data);
 }
 
+static void prv_update_clock(MusicAppData *data) {
+  clock_copy_time_string(data->clock_buffer, sizeof(data->clock_buffer));
+  layer_mark_dirty(&data->clock_layer.layer);
+}
+
 static void prv_handle_tick_time(struct tm *time, TimeUnits units_changed) {
+  MusicAppData *data = app_state_get_user_data();
   if (music_get_playback_state() == MusicPlayStatePlaying) {
     prv_update_pos();
+  }
+  if (units_changed & MINUTE_UNIT) {
+    prv_update_clock(data);
   }
 }
 
@@ -851,8 +863,8 @@ static void prv_set_pos_update_timer(MusicAppData* data, MusicPlayState playstat
       tick_timer_service_subscribe(SECOND_UNIT, prv_handle_tick_time);
       break;
     default:
-      // We're no longer updating the progress bar; unsubscribe.
-      tick_timer_service_unsubscribe();
+      // We're no longer updating the progress bar, but we still need minute updates for the clock.
+      tick_timer_service_subscribe(MINUTE_UNIT, prv_handle_tick_time);
   }
 }
 
@@ -936,6 +948,10 @@ static void prv_init_ui(Window *window) {
 
   StatusBarLayer *status_layer = &data->status_layer;
   status_bar_layer_init(status_layer);
+  
+  // Hide the default clock by setting custom text mode with empty string
+  status_bar_layer_set_title(status_layer, "", false, false);
+
   GRect status_layer_frame = status_layer->layer.frame;
   const int16_t STATUS_BAR_LAYER_WIDTH = PBL_IF_RECT_ELSE(WINDOW_SIZE.w - ACTION_BAR_WIDTH,
                                                           WINDOW_SIZE.w);
@@ -943,6 +959,16 @@ static void prv_init_ui(Window *window) {
   layer_set_frame(&status_layer->layer, &status_layer_frame);
   status_bar_layer_set_colors(&data->status_layer, GColorClear, GColorBlack);
   layer_add_child(&data->window.layer, &status_layer->layer);
+
+  // Custom enlarged clock layer
+  const int16_t clock_height = 24;
+  GRect clock_rect = GRect(0, 0, STATUS_BAR_LAYER_WIDTH, clock_height);
+  text_layer_init_with_parameters(&data->clock_layer, &clock_rect, data->clock_buffer,
+                                  fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+                                  GColorBlack, GColorClear, GTextAlignmentCenter,
+                                  GTextOverflowModeTrailingEllipsis);
+  layer_add_child(&window->layer, &data->clock_layer.layer);
+  prv_update_clock(data);
 
   music_get_pos(&data->track_pos, &data->track_length);
 
