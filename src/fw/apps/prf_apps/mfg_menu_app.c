@@ -7,6 +7,9 @@
 #include "applib/ui/window_private.h"
 #include "applib/ui/dialogs/confirmation_dialog.h"
 #include "apps/prf_apps/mfg_accel_app.h"
+#if CAPABILITY_HAS_MAGNETOMETER
+#include "apps/prf_apps/mfg_mag_app.h"
+#endif
 #include "apps/prf_apps/mfg_als_app.h"
 #include "apps/prf_apps/mfg_bt_device_name_app.h"
 #include "apps/prf_apps/mfg_charge_app.h"
@@ -93,10 +96,6 @@ static void prv_select_calibrate_display(int index, void *context) {
 }
 #endif
 
-static void prv_select_accel(int index, void *context) {
-  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_accel_app_get_info());
-}
-
 static void prv_select_button(int index, void *context) {
   launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_button_app_get_info());
 }
@@ -108,6 +107,16 @@ static void prv_select_display(int index, void *context) {
 #if PLATFORM_OBELIX
 static void prv_select_backlight(int index, void *context) {
   launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_backlight_app_get_info());
+}
+#endif
+
+static void prv_select_accel(int index, void *context) {
+  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_accel_app_get_info());
+}
+
+#if CAPABILITY_HAS_MAGNETOMETER
+static void prv_select_mag(int index, void *context) {
+  launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_mag_app_get_info());
 }
 #endif
 
@@ -163,11 +172,6 @@ static void prv_select_program_color(int index, void *context) {
   launcher_task_add_callback(prv_launch_app_cb, (void*) mfg_program_color_app_get_info());
 }
 
-static void prv_extras_select_accel(int index, void *context) {
-  // Launch app and mark to return to extras menu when it exits
-  launcher_task_add_callback(prv_launch_app_from_extras_cb, (void*) mfg_accel_app_get_info());
-}
-
 static void prv_extras_select_discharge(int index, void *context) {
   // Launch app and mark to return to extras menu when it exits
   launcher_task_add_callback(prv_launch_app_from_extras_cb, (void*) mfg_discharge_app_get_info());
@@ -178,6 +182,39 @@ static void prv_extras_select_test_aging(int index, void *context) {
   launcher_task_add_callback(prv_launch_app_from_extras_cb, (void*) mfg_test_aging_app_get_info());
 }
 
+static void prv_load_prf_confirmed(ClickRecognizerRef recognizer, void *context) {
+  ConfirmationDialog *confirmation_dialog = (ConfirmationDialog *)context;
+  confirmation_dialog_pop(confirmation_dialog);
+
+  bool confirmed = (click_recognizer_get_button_id(recognizer) == BUTTON_ID_UP);
+  if (confirmed) {
+    boot_bit_set(BOOT_BIT_FORCE_PRF);
+    system_reset();
+  }
+}
+
+static void prv_load_prf_click_config(void *context) {
+  window_single_click_subscribe(BUTTON_ID_UP, prv_load_prf_confirmed);
+  window_single_click_subscribe(BUTTON_ID_DOWN, prv_load_prf_confirmed);
+  window_single_click_subscribe(BUTTON_ID_BACK, prv_load_prf_confirmed);
+}
+
+static void prv_extras_select_load_prf(int index, void *context) {
+  ConfirmationDialog *confirmation_dialog = confirmation_dialog_create("Load PRF");
+  Dialog *dialog = confirmation_dialog_get_dialog(confirmation_dialog);
+
+  dialog_set_text(dialog, "Load PRF?\n\nThis action cannot be undone!");
+  dialog_set_background_color(dialog, GColorOrange);
+  dialog_set_text_color(dialog, GColorWhite);
+
+  confirmation_dialog_set_click_config_provider(confirmation_dialog, prv_load_prf_click_config);
+
+  ActionBarLayer *action_bar = confirmation_dialog_get_action_bar(confirmation_dialog);
+  action_bar_layer_set_context(action_bar, confirmation_dialog);
+
+  app_confirmation_dialog_push(confirmation_dialog);
+}
+
 static void prv_extras_window_load(Window *window) {
   ExtrasMenuData *data = window_get_user_data(window);
 
@@ -185,12 +222,12 @@ static void prv_extras_window_load(Window *window) {
   GRect bounds = window_layer->bounds;
 
   const SimpleMenuItem extras_menu_items[] = {
-    { .title = "Test Accel",        .callback = prv_extras_select_accel },
 #if CAPABILITY_HAS_BUILTIN_HRM
     { .title = "Test HRM",          .callback = prv_select_hrm },
 #endif
     { .title = "Test Discharge",    .callback = prv_extras_select_discharge },
     { .title = "Test Aging",        .callback = prv_extras_select_test_aging },
+    { .title = "Load PRF",          .callback = prv_extras_select_load_prf },
   };
 
   SimpleMenuItem *menu_items = app_malloc(sizeof(extras_menu_items));
@@ -232,39 +269,6 @@ static void prv_select_extras(int index, void *context) {
   window_set_fullscreen(data->window, true);
 
   app_window_stack_push(data->window, true);
-}
-
-static void prv_load_prf_confirmed(ClickRecognizerRef recognizer, void *context) {
-  ConfirmationDialog *confirmation_dialog = (ConfirmationDialog *)context;
-  confirmation_dialog_pop(confirmation_dialog);
-
-  bool confirmed = (click_recognizer_get_button_id(recognizer) == BUTTON_ID_UP);
-  if (confirmed) {
-    boot_bit_set(BOOT_BIT_FORCE_PRF);
-    system_reset();
-  }
-}
-
-static void prv_load_prf_click_config(void *context) {
-  window_single_click_subscribe(BUTTON_ID_UP, prv_load_prf_confirmed);
-  window_single_click_subscribe(BUTTON_ID_DOWN, prv_load_prf_confirmed);
-  window_single_click_subscribe(BUTTON_ID_BACK, prv_load_prf_confirmed);
-}
-
-static void prv_select_load_prf(int index, void *context) {
-  ConfirmationDialog *confirmation_dialog = confirmation_dialog_create("Load PRF");
-  Dialog *dialog = confirmation_dialog_get_dialog(confirmation_dialog);
-
-  dialog_set_text(dialog, "Load PRF?\n\nThis action cannot be undone!");
-  dialog_set_background_color(dialog, GColorOrange);
-  dialog_set_text_color(dialog, GColorWhite);
-
-  confirmation_dialog_set_click_config_provider(confirmation_dialog, prv_load_prf_click_config);
-
-  ActionBarLayer *action_bar = confirmation_dialog_get_action_bar(confirmation_dialog);
-  action_bar_layer_set_context(action_bar, confirmation_dialog);
-
-  app_confirmation_dialog_push(confirmation_dialog);
 }
 
 static void prv_select_reset(int index, void *context) {
@@ -332,6 +336,10 @@ static size_t prv_create_menu_items(SimpleMenuItem** out_menu_items) {
 #if PLATFORM_OBELIX
     { .title = "Test Backlight",    .callback = prv_select_backlight },
 #endif
+    { .title = "Test Accelerometer", .callback = prv_select_accel },
+#if CAPABILITY_HAS_MAGNETOMETER
+    { .title = "Test Magnetometer", .callback = prv_select_mag },
+#endif
 #if PLATFORM_ASTERIX || PLATFORM_OBELIX
     { .title = "Test Speaker",      .callback = prv_select_speaker },
 #endif
@@ -347,7 +355,6 @@ static size_t prv_create_menu_items(SimpleMenuItem** out_menu_items) {
 #endif
     { .title = "Program Color",     .callback = prv_select_program_color },
     { .title = "Test Charge",       .callback = prv_select_charge },
-    { .title = "Load PRF",          .callback = prv_select_load_prf },
     { .title = "Reset",             .callback = prv_select_reset },
     { .title = "Shutdown",          .callback = prv_select_shutdown },
     { .title = "Extras",            .callback = prv_select_extras },

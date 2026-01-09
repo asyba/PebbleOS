@@ -122,17 +122,17 @@ typedef struct QuickLaunchPreference {
 #define PREF_KEY_QUICK_LAUNCH_BACK "qlBack"
 
 static QuickLaunchPreference s_quick_launch_up = {
-  .enabled = true,
+  .enabled = false,
   .uuid = UUID_INVALID_INIT,
 };
 
 static QuickLaunchPreference s_quick_launch_down = {
-  .enabled = true,
+  .enabled = false,
   .uuid = UUID_INVALID_INIT,
 };
 
 static QuickLaunchPreference s_quick_launch_select = {
-  .enabled = true,
+  .enabled = false,
   .uuid = UUID_INVALID_INIT,
 };
 
@@ -345,7 +345,7 @@ static bool prv_set_s_motion_sensitivity(uint8_t *sensitivity) {
   
   // Update accelerometer sensitivity in accel_manager
   // This applies the setting to the hardware
-  #if PLATFORM_ASTERIX || PLATFORM_OBELIX
+  #if CAPABILITY_HAS_ACCEL_SENSITIVITY
   accel_manager_update_sensitivity(*sensitivity);
   #endif
   
@@ -397,32 +397,45 @@ static bool prv_set_s_language_english(bool *english) {
   return true;
 }
 
+// Normalize QuickLaunchPreference: enabled must be false if UUID is invalid
+static void prv_normalize_quick_launch_pref(QuickLaunchPreference *pref) {
+  if (uuid_is_invalid(&pref->uuid)) {
+    pref->enabled = false;
+  }
+}
+
 static bool prv_set_s_quick_launch_up(QuickLaunchPreference *pref) {
+  prv_normalize_quick_launch_pref(pref);
   s_quick_launch_up = *pref;
   return true;
 }
 
 static bool prv_set_s_quick_launch_down(QuickLaunchPreference *pref) {
+  prv_normalize_quick_launch_pref(pref);
   s_quick_launch_down = *pref;
   return true;
 }
 
 static bool prv_set_s_quick_launch_select(QuickLaunchPreference *pref) {
+  prv_normalize_quick_launch_pref(pref);
   s_quick_launch_select = *pref;
   return true;
 }
 
 static bool prv_set_s_quick_launch_back(QuickLaunchPreference *pref) {
+  prv_normalize_quick_launch_pref(pref);
   s_quick_launch_back = *pref;
   return true;
 }
 
 static bool prv_set_s_quick_launch_single_click_up(QuickLaunchPreference *pref) {
+  prv_normalize_quick_launch_pref(pref);
   s_quick_launch_single_click_up = *pref;
   return true;
 }
 
 static bool prv_set_s_quick_launch_single_click_down(QuickLaunchPreference *pref) {
+  prv_normalize_quick_launch_pref(pref);
   s_quick_launch_single_click_down = *pref;
   return true;
 }
@@ -717,7 +730,7 @@ void shell_prefs_init(void) {
   ambient_light_set_dark_threshold(s_backlight_ambient_threshold);
 
   // Update accelerometer sensitivity with the loaded value
-#if PLATFORM_ASTERIX || PLATFORM_OBELIX
+#if CAPABILITY_HAS_ACCEL_SENSITIVITY
   accel_manager_update_sensitivity(s_motion_sensitivity);
 #endif
 }
