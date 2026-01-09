@@ -851,20 +851,17 @@ static void prv_handle_tick_time(struct tm *time, TimeUnits units_changed) {
 }
 
 static void prv_set_pos_update_timer(MusicAppData* data, MusicPlayState playstate) {
-  // Don't subscribe to updates if progress reporting not supported OR user disabled it
-  if (!music_is_progress_reporting_supported() || !shell_prefs_get_music_show_progress_bar()) {
-    tick_timer_service_unsubscribe();
-    return;
-  }
+  // Check if we need second-by-second updates for the progress bar
+  bool need_second_updates = music_is_progress_reporting_supported() && 
+                             shell_prefs_get_music_show_progress_bar() &&
+                             playstate == MusicPlayStatePlaying;
   
-  switch (playstate) {
-    case MusicPlayStatePlaying:
-      // We need to update the progress bar every second.
-      tick_timer_service_subscribe(SECOND_UNIT, prv_handle_tick_time);
-      break;
-    default:
-      // We're no longer updating the progress bar, but we still need minute updates for the clock.
-      tick_timer_service_subscribe(MINUTE_UNIT, prv_handle_tick_time);
+  if (need_second_updates) {
+    // We need to update the progress bar every second.
+    tick_timer_service_subscribe(SECOND_UNIT, prv_handle_tick_time);
+  } else {
+    // We still need minute updates for the clock, even if progress bar is disabled.
+    tick_timer_service_subscribe(MINUTE_UNIT, prv_handle_tick_time);
   }
 }
 
